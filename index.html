@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- viewport-fit=cover lets us paint into the safe-area insets on notched phones -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#FF5B4C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Called It — the prediction game for friends</title>
+<style>
+/* =========================================================================
+   CALLED IT — design tokens
+   Bright, playful party-game palette. Everything derives from these.
+   ========================================================================= */
+:root{
+  --coral:#FF5B4C;        /* brand / "all in" */
+  --coral-deep:#F0463A;
+  --blue:#2D7DFF;
+  --yellow:#FFC93C;
+  --mint:#22CFA0;
+  --mint-deep:#13B98C;
+  --purple:#8B5CF6;
+  --pink:#FF6FA5;
+  --orange:#FF9A3C;
+
+  --ink:#20243A;          /* primary text */
+  --ink-soft:#666C86;     /* secondary text */
+  --ink-faint:#9AA0B5;
+  --line:#EFEAE3;         /* hairline borders */
+  --bg:#FBF7F2;           /* warm off-white app background */
+  --card:#FFFFFF;
+
+  --radius:22px;
+  --radius-sm:14px;
+  --radius-pill:999px;
+
+  --shadow:0 6px 20px rgba(34,38,64,.08), 0 2px 6px rgba(34,38,64,.05);
+  --shadow-lg:0 16px 44px rgba(34,38,64,.16), 0 4px 12px rgba(34,38,64,.08);
+
+  --safe-top:env(safe-area-inset-top, 0px);
+  --safe-bottom:env(safe-area-inset-bottom, 0px);
+
+  --nav-h:64px;
+
+  /* Rounded, friendly system stack. No external fonts → instant + offline. */
+  --font: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+          system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0;
+  font-family:var(--font);
+  color:var(--ink);
+  background:var(--bg);
+  /* layered soft glows for a lively, non-flat background */
+  background-image:
+    radial-gradient(1100px 480px at 110% -10%, rgba(255,201,60,.22), transparent 60%),
+    radial-gradient(900px 460px at -10% 8%, rgba(45,125,255,.13), transparent 55%),
+    radial-gradient(800px 520px at 50% 120%, rgba(34,207,160,.14), transparent 60%);
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overscroll-behavior-y:none;
+  line-height:1.35;
+}
+button{font-family:inherit; color:inherit; cursor:pointer; border:none; background:none;}
+input,textarea{font-family:inherit;}
+button, .tap{touch-action:manipulation;}
+:focus-visible{outline:3px solid var(--blue); outline-offset:2px; border-radius:8px;}
+
+/* =========================================================================
+   App shell
+   ========================================================================= */
+#app{
+  display:flex; flex-direction:column;
+  min-height:100dvh;
+  max-width:560px; margin:0 auto;
+  position:relative;
+}
+
+/* ---- Header ---- */
+header{
+  position:sticky; top:0; z-index:40;
+  padding:calc(var(--safe-top) + 12px) 16px 12px;
+  background:linear-gradient(135deg, var(--coral) 0%, var(--orange) 100%);
+  color:#fff;
+  box-shadow:0 6px 18px rgba(255,91,76,.28);
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+.brand{display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:-.02em;}
+.brand .logo{
+  width:38px; height:38px; border-radius:12px; flex:none;
+  background:rgba(255,255,255,.22);
+  display:grid; place-items:center; font-size:22px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);
+}
+.brand .name{font-size:21px; line-height:1;}
+.brand .tag{font-size:11.5px; font-weight:600; opacity:.92; letter-spacing:.01em;}
+.icon-btn{
+  width:42px; height:42px; border-radius:14px; flex:none;
+  display:grid; place-items:center; font-size:20px; color:#fff;
+  background:rgba(255,255,255,.18);
+  transition:transform .12s ease, background .15s ease;
+}
+.icon-btn:active{transform:scale(.9); background:rgba(255,255,255,.3);}
+
+/* ---- Main scroll area ---- */
+main{
+  flex:1;
+  padding:16px 16px calc(var(--nav-h) + var(--safe-bottom) + 24px);
+}
+.view{display:none; animation:viewIn .28s ease both;}
+.view.active{display:block;}
+@keyframes viewIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+
+.view-head{margin:2px 2px 14px;}
+.view-head h1{font-size:25px; font-weight:800; letter-spacing:-.02em; margin:0;}
+.view-head p{margin:3px 0 0; color:var(--ink-soft); font-size:14px; font-weight:500;}
+
+/* =========================================================================
+   Cards & common bits
+   ========================================================================= */
+.card{
+  background:var(--card); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:16px; margin-bottom:14px;
+  border:1px solid rgba(239,234,227,.7);
+}
+.row{display:flex; align-items:center; gap:10px;}
+.spread{justify-content:space-between;}
+.muted{color:var(--ink-soft);}
+.faint{color:var(--ink-faint);}
+.tiny{font-size:12.5px;}
+.bold{font-weight:800;}
+.center{text-align:center;}
+
+/* Avatar chip */
+.avatar{
+  width:40px; height:40px; border-radius:13px; flex:none;
+  display:grid; place-items:center; font-size:20px; color:#fff;
+  box-shadow:0 3px 8px rgba(34,38,64,.16);
+}
+.avatar.sm{width:30px; height:30px; border-radius:10px; font-size:15px;}
+.avatar.lg{width:54px; height:54px; border-radius:17px; font-size:27px;}
+
+/* Buttons */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:52px; padding:0 20px; border-radius:var(--radius-pill);
+  font-weight:800; font-size:16px; letter-spacing:-.01em;
+  background:var(--ink); color:#fff;
+  transition:transform .12s ease, box-shadow .15s ease, opacity .15s;
+  box-shadow:0 6px 14px rgba(34,38,64,.18);
+  width:100%;
+}
+.btn:active{transform:scale(.97);}
+.btn:disabled{opacity:.4; box-shadow:none; pointer-events:none;}
+.btn.coral{background:linear-gradient(135deg,var(--coral),var(--coral-deep)); box-shadow:0 8px 18px rgba(255,91,76,.32);}
+.btn.blue{background:linear-gradient(135deg,#3F88FF,var(--blue)); box-shadow:0 8px 18px rgba(45,125,255,.3);}
+.btn.mint{background:linear-gradient(135deg,var(--mint),var(--mint-deep)); box-shadow:0 8px 18px rgba(34,207,160,.3);}
+.btn.ghost{background:#fff; color:var(--ink); box-shadow:none; border:1.5px solid var(--line);}
+.btn.danger{background:linear-gradient(135deg,#FF6B6B,#E23A3A); box-shadow:0 8px 18px rgba(226,58,58,.28);}
+.btn.sm{min-height:42px; font-size:14px; padding:0 16px; width:auto;}
+.btn.tiny-btn{min-height:38px; font-size:13px; padding:0 14px; width:auto;}
+
+.pop{animation:pop .32s cubic-bezier(.22,1.2,.4,1);}
+@keyframes pop{0%{transform:scale(.9);}55%{transform:scale(1.06);}100%{transform:scale(1);}}
+
+/* Pills / tags */
+.pill{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 11px; border-radius:var(--radius-pill);
+  font-size:12.5px; font-weight:800; line-height:1;
+  background:rgba(45,125,255,.1); color:var(--blue);
+}
+.pill.warn{background:rgba(255,154,60,.14); color:#D9791E;}
+.pill.live{background:rgba(34,207,160,.14); color:var(--mint-deep);}
+.pill.grey{background:#F1EEE9; color:var(--ink-soft);}
+
+/* Empty states */
+.empty{
+  text-align:center; padding:38px 22px; color:var(--ink-soft);
+}
+.empty .big{font-size:46px; margin-bottom:10px;}
+.empty h3{margin:0 0 6px; color:var(--ink); font-size:18px; font-weight:800;}
+.empty p{margin:0 0 16px; font-size:14px;}
+
+/* =========================================================================
+   Prediction cards
+   ========================================================================= */
+.pred .statement{font-size:17px; font-weight:800; letter-spacing:-.01em; margin:0 0 8px;}
+.pred .meta{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:12px;}
+.callers{display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
+.caller-chip{
+  display:flex; align-items:center; gap:6px;
+  background:#F7F4EF; border-radius:var(--radius-pill); padding:4px 10px 4px 4px;
+  font-size:12.5px; font-weight:700;
+}
+.caller-chip .sidedot{width:16px; height:16px; border-radius:50%; display:grid; place-items:center; font-size:10px; color:#fff; font-weight:900;}
+.consensus{
+  font-size:13px; font-weight:700; color:var(--ink-soft);
+  background:#F7F4EF; border-radius:12px; padding:9px 12px; margin-bottom:12px;
+  display:flex; align-items:center; gap:8px;
+}
+.cbar{flex:1; height:8px; border-radius:6px; background:#E7E2DA; overflow:hidden; position:relative;}
+.cbar > span{position:absolute; inset:0 auto 0 0; border-radius:6px;
+  background:linear-gradient(90deg,var(--mint),var(--blue)); transition:width .5s cubic-bezier(.2,.8,.2,1);}
+.pred-actions{display:flex; gap:10px;}
+.pred-actions .btn{flex:1;}
+
+/* Resolved stamp */
+.stamp{
+  font-weight:900; font-size:13px; letter-spacing:.04em; padding:6px 12px; border-radius:var(--radius-pill);
+}
+.stamp.t{background:rgba(34,207,160,.16); color:var(--mint-deep);}
+.stamp.f{background:rgba(255,91,76,.14); color:var(--coral-deep);}
+
+.result-line{
+  display:flex; align-items:center; gap:9px; padding:9px 0; border-top:1px solid var(--line);
+  font-size:14px; font-weight:700;
+}
+.result-line:first-of-type{border-top:none;}
+.result-line .name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.result-line .call{font-size:12px; font-weight:800; color:var(--ink-soft);}
+.delta{font-weight:900; font-variant-numeric:tabular-nums; min-width:48px; text-align:right;}
+.delta.up{color:var(--mint-deep);} .delta.down{color:var(--coral-deep);} .delta.zero{color:var(--ink-faint);}
+
+/* =========================================================================
+   Leaderboard
+   ========================================================================= */
+.lb-row{
+  display:flex; align-items:center; gap:12px; padding:13px 14px;
+  background:var(--card); border-radius:var(--radius); margin-bottom:10px;
+  box-shadow:var(--shadow); border:1px solid rgba(239,234,227,.7);
+  position:relative; overflow:hidden;
+}
+.lb-row.first{
+  background:linear-gradient(135deg,#FFF8E8,#FFFDF6);
+  border:1.5px solid rgba(255,201,60,.55);
+  box-shadow:0 10px 26px rgba(255,184,0,.18);
+}
+.lb-rank{width:26px; text-align:center; font-weight:900; font-size:17px; color:var(--ink-faint); flex:none;}
+.lb-row.first .lb-rank{font-size:22px;}
+.lb-main{flex:1; min-width:0;}
+.lb-name{font-weight:800; font-size:16px; letter-spacing:-.01em; display:flex; align-items:center; gap:7px;}
+.lb-name .title{font-size:11px; font-weight:900; padding:3px 8px; border-radius:var(--radius-pill);
+  background:rgba(255,201,60,.22); color:#B5860A; letter-spacing:.01em;}
+.lb-stats{font-size:12.5px; color:var(--ink-soft); font-weight:600; margin-top:2px;}
+.lb-score{font-size:23px; font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:-.02em; text-align:right;}
+.lb-score.pos{color:var(--mint-deep);} .lb-score.neg{color:var(--coral-deep);} .lb-score.neu{color:var(--ink-faint);}
+
+.callout{
+  display:flex; align-items:center; gap:12px; padding:14px;
+  border-radius:var(--radius); margin-bottom:11px; color:#fff;
+  box-shadow:var(--shadow);
+}
+.callout .emoji{font-size:30px; flex:none;}
+.callout .label{font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; opacity:.92;}
+.callout .who{font-size:18px; font-weight:900; letter-spacing:-.01em;}
+.callout .sub{font-size:12.5px; font-weight:600; opacity:.92;}
+.callout.house{background:linear-gradient(135deg,var(--coral),var(--coral-deep));}
+.callout.active{background:linear-gradient(135deg,var(--blue),#1E63E0);}
+.callout.cold{background:linear-gradient(135deg,var(--purple),#6D3FE0);}
+
+/* =========================================================================
+   Crew (players)
+   ========================================================================= */
+.crew-row{
+  display:flex; align-items:center; gap:12px; padding:11px 13px;
+  background:var(--card); border-radius:var(--radius-sm); margin-bottom:9px;
+  box-shadow:var(--shadow); border:1px solid rgba(239,234,227,.7);
+}
+.crew-row .nm{flex:1; font-weight:800; font-size:16px;}
+.crew-row .sc{font-size:13px; font-weight:700; color:var(--ink-soft);}
+.x-btn{width:36px; height:36px; border-radius:11px; flex:none; display:grid; place-items:center;
+  font-size:18px; color:var(--ink-faint); background:#F4F1EC; transition:transform .12s, background .15s, color .15s;}
+.x-btn:active{transform:scale(.88); background:#FFE4E1; color:var(--coral-deep);}
+
+/* =========================================================================
+   Bottom navigation
+   ========================================================================= */
+nav{
+  position:fixed; left:0; right:0; bottom:0; z-index:40;
+  max-width:560px; margin:0 auto;
+  height:calc(var(--nav-h) + var(--safe-bottom));
+  padding-bottom:var(--safe-bottom);
+  background:rgba(255,255,255,.92);
+  backdrop-filter:saturate(180%) blur(14px); -webkit-backdrop-filter:saturate(180%) blur(14px);
+  border-top:1px solid var(--line);
+  display:flex; align-items:stretch;
+}
+.nav-btn{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  color:var(--ink-faint); font-size:11px; font-weight:800; letter-spacing:.01em;
+  transition:color .15s;
+}
+.nav-btn .ico{font-size:22px; line-height:1; transition:transform .18s cubic-bezier(.2,1.3,.4,1);}
+.nav-btn.active{color:var(--coral);}
+.nav-btn.active .ico{transform:translateY(-2px) scale(1.12);}
+.nav-btn:active .ico{transform:scale(.85);}
+
+/* =========================================================================
+   Bottom sheet (modal)
+   ========================================================================= */
+#backdrop{
+  position:fixed; inset:0; z-index:50; background:rgba(20,18,30,.42);
+  opacity:0; pointer-events:none; transition:opacity .25s ease;
+  backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
+}
+#backdrop.show{opacity:1; pointer-events:auto;}
+#sheet{
+  position:fixed; left:0; right:0; bottom:0; z-index:51;
+  max-width:560px; margin:0 auto;
+  background:var(--bg); border-radius:26px 26px 0 0;
+  box-shadow:var(--shadow-lg);
+  transform:translateY(110%); transition:transform .32s cubic-bezier(.2,.9,.25,1);
+  max-height:92dvh; display:flex; flex-direction:column;
+  padding-bottom:var(--safe-bottom);
+}
+#sheet.show{transform:translateY(0);}
+.sheet-grip{width:40px; height:5px; border-radius:3px; background:#D8D2C8; margin:10px auto 2px;}
+.sheet-body{overflow-y:auto; -webkit-overflow-scrolling:touch; padding:8px 18px 22px;}
+.sheet-title{font-size:21px; font-weight:900; letter-spacing:-.02em; margin:6px 2px 4px;}
+.sheet-sub{font-size:13.5px; color:var(--ink-soft); font-weight:600; margin:0 2px 16px;}
+
+/* Form controls */
+label.fl{display:block; font-size:13px; font-weight:800; color:var(--ink-soft); margin:0 2px 7px;}
+.field{
+  width:100%; min-height:54px; padding:14px 16px; font-size:16px; font-weight:600;
+  background:#fff; border:1.5px solid var(--line); border-radius:16px; color:var(--ink);
+  margin-bottom:16px; transition:border-color .15s, box-shadow .15s;
+}
+.field:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 4px rgba(45,125,255,.13);}
+textarea.field{resize:none; line-height:1.4; min-height:84px;}
+
+/* Player select chips */
+.chip-wrap{display:flex; flex-wrap:wrap; gap:9px; margin-bottom:18px;}
+.pchip{
+  display:flex; align-items:center; gap:8px; padding:7px 14px 7px 7px;
+  border-radius:var(--radius-pill); background:#fff; border:1.5px solid var(--line);
+  font-weight:800; font-size:14.5px; transition:transform .12s, border-color .15s, box-shadow .15s;
+}
+.pchip:active{transform:scale(.95);}
+.pchip.sel{border-color:var(--ink); box-shadow:0 4px 12px rgba(34,38,64,.12);}
+.pchip .done{font-size:11px; color:var(--mint-deep); font-weight:900;}
+
+/* YES / NO toggle */
+.yn{display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-bottom:20px;}
+.yn button{
+  min-height:64px; border-radius:18px; border:2px solid var(--line); background:#fff;
+  font-weight:900; font-size:16px; display:flex; flex-direction:column; gap:2px; align-items:center; justify-content:center;
+  transition:transform .12s, border-color .15s, background .15s, color .15s;
+}
+.yn button .lab{font-size:11.5px; font-weight:700; color:var(--ink-faint);}
+.yn button:active{transform:scale(.97);}
+.yn button.yes.on{background:linear-gradient(135deg,var(--mint),var(--mint-deep)); color:#fff; border-color:transparent;}
+.yn button.no.on{background:linear-gradient(135deg,var(--blue),#1E63E0); color:#fff; border-color:transparent;}
+.yn button.on .lab{color:rgba(255,255,255,.85);}
+
+/* Confidence picker — the signature: a risk meter that heats up */
+.conf-head{display:flex; align-items:baseline; justify-content:space-between; margin:0 2px 9px;}
+.conf-val{font-size:30px; font-weight:900; letter-spacing:-.03em; transition:color .2s;}
+.conf-mood{font-size:13.5px; font-weight:800; transition:color .2s;}
+.conf-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:7px; margin-bottom:8px;}
+.conf-grid button{
+  min-height:54px; border-radius:14px; border:2px solid var(--line); background:#fff;
+  font-weight:900; font-size:15px; color:var(--ink-soft);
+  transition:transform .12s, border-color .15s, background .15s, color .15s;
+}
+.conf-grid button:active{transform:scale(.93);}
+.conf-grid button.on{color:#fff; border-color:transparent; transform:translateY(-1px); box-shadow:0 6px 14px rgba(34,38,64,.18);}
+.conf-note{font-size:12.5px; color:var(--ink-soft); font-weight:600; text-align:center; margin:0 0 18px; min-height:18px;}
+
+/* Resolve choice */
+.tf{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:6px 0 8px;}
+.tf button{min-height:78px; border-radius:20px; font-weight:900; font-size:18px; color:#fff;
+  display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center;
+  transition:transform .12s; box-shadow:var(--shadow);}
+.tf button .em{font-size:26px;}
+.tf button:active{transform:scale(.96);}
+.tf .true{background:linear-gradient(135deg,var(--mint),var(--mint-deep));}
+.tf .false{background:linear-gradient(135deg,var(--coral),var(--coral-deep));}
+
+/* Settings list */
+.set-item{display:flex; align-items:center; gap:13px; padding:15px 4px; border-bottom:1px solid var(--line);}
+.set-item .si-ico{width:42px; height:42px; border-radius:13px; display:grid; place-items:center; font-size:20px; flex:none; color:#fff;}
+.set-item .si-main{flex:1;}
+.set-item .si-t{font-weight:800; font-size:15.5px;}
+.set-item .si-d{font-size:12.5px; color:var(--ink-soft); font-weight:600;}
+.set-item .chev{color:var(--ink-faint); font-size:20px; font-weight:800;}
+
+.explain{background:#fff; border:1px solid var(--line); border-radius:18px; padding:16px; margin-bottom:16px;}
+.explain h4{margin:0 0 8px; font-size:15px; font-weight:900;}
+.explain p{margin:0 0 10px; font-size:13.5px; color:var(--ink-soft); font-weight:600; line-height:1.5;}
+.explain .ex-row{display:flex; justify-content:space-between; font-size:13px; font-weight:700; padding:6px 0; border-top:1px dashed var(--line);}
+.explain .ex-row span:last-child{font-variant-numeric:tabular-nums;}
+
+.danger-zone{border:1.5px solid rgba(226,58,58,.3); background:rgba(255,91,76,.05); border-radius:18px; padding:16px; margin-top:4px;}
+.check{display:flex; align-items:center; gap:11px; margin:4px 0 14px; font-size:14px; font-weight:700;}
+.check input{width:24px; height:24px; accent-color:var(--coral); flex:none;}
+
+/* =========================================================================
+   Toast + confetti
+   ========================================================================= */
+#toast-wrap{position:fixed; left:0; right:0; bottom:calc(var(--nav-h) + var(--safe-bottom) + 14px);
+  z-index:60; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; padding:0 16px;}
+.toast{
+  background:var(--ink); color:#fff; font-weight:800; font-size:14.5px;
+  padding:12px 18px; border-radius:var(--radius-pill); box-shadow:var(--shadow-lg);
+  transform:translateY(20px); opacity:0; animation:toastIn .3s forwards;
+  max-width:100%;
+}
+.toast.win{background:linear-gradient(135deg,var(--mint),var(--mint-deep));}
+@keyframes toastIn{to{transform:translateY(0); opacity:1;}}
+.toast.out{animation:toastOut .3s forwards;}
+@keyframes toastOut{to{transform:translateY(14px); opacity:0;}}
+
+#confetti{position:fixed; inset:0; z-index:70; pointer-events:none;}
+
+/* Reduced motion: keep it calm */
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="logo">🎯</div>
+      <div>
+        <div class="name">Called It</div>
+        <div class="tag">predict · commit · find out who's right</div>
+      </div>
+    </div>
+    <button class="icon-btn" data-action="open-settings" aria-label="Settings">⚙️</button>
+  </header>
+
+  <main>
+    <!-- PREDICT (home) -->
+    <section class="view active" id="view-predict"></section>
+    <!-- LEADERBOARD -->
+    <section class="view" id="view-board"></section>
+    <!-- HISTORY -->
+    <section class="view" id="view-history"></section>
+    <!-- CREW -->
+    <section class="view" id="view-crew"></section>
+  </main>
+
+  <nav>
+    <button class="nav-btn active" data-action="nav" data-tab="predict"><span class="ico">🎯</span>Predict</button>
+    <button class="nav-btn" data-action="nav" data-tab="board"><span class="ico">🏆</span>Board</button>
+    <button class="nav-btn" data-action="nav" data-tab="history"><span class="ico">📜</span>History</button>
+    <button class="nav-btn" data-action="nav" data-tab="crew"><span class="ico">👥</span>Crew</button>
+  </nav>
+</div>
+
+<!-- Bottom sheet -->
+<div id="backdrop" data-action="close-sheet"></div>
+<div id="sheet" role="dialog" aria-modal="true">
+  <div class="sheet-grip"></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<div id="toast-wrap"></div>
+<canvas id="confetti"></canvas>
+
+<!-- ===== Auth gate — shown until the player is signed in ===== -->
+<style>
+#auth{position:fixed; inset:0; z-index:120; display:none; flex-direction:column;
+  align-items:center; justify-content:center; padding:28px;
+  padding-top:calc(28px + env(safe-area-inset-top));
+  padding-bottom:calc(28px + env(safe-area-inset-bottom));
+  background:linear-gradient(160deg,#FFF3EF 0%, #EAF2FF 55%, #E9FBF4 100%);}
+#auth.show{display:flex;}
+#auth .auth-card{width:100%; max-width:380px; background:#fff; border-radius:26px;
+  box-shadow:var(--shadow-lg); padding:26px 22px 22px; text-align:center;}
+#auth .auth-logo{width:62px; height:62px; border-radius:20px; margin:0 auto 14px;
+  display:grid; place-items:center; font-size:32px;
+  background:linear-gradient(135deg,var(--coral),#FF8566); box-shadow:0 8px 20px rgba(255,91,76,.35);}
+#auth h1{font-size:23px; margin:0 0 4px; letter-spacing:-.02em;}
+#auth .sub{color:var(--ink-soft); font-size:14.5px; line-height:1.45; margin:0 0 20px;}
+#auth label{display:block; text-align:left; font-weight:800; font-size:13px;
+  color:var(--ink-soft); margin:0 0 7px 4px;}
+#auth input{width:100%; box-sizing:border-box; border:2px solid #ECECF1; border-radius:16px;
+  padding:15px 16px; font:inherit; font-size:16px; font-weight:600; outline:none; transition:border-color .15s;}
+#auth input:focus{border-color:var(--coral);}
+#auth .code-in{text-align:center; letter-spacing:.42em; font-size:24px; font-weight:800; padding-left:.42em;}
+#auth button.go{width:100%; margin-top:16px; border:none; border-radius:16px; padding:15px;
+  font:inherit; font-size:16.5px; font-weight:800; color:#fff; cursor:pointer;
+  background:linear-gradient(135deg,var(--coral),#FF7A5C); box-shadow:0 8px 18px rgba(255,91,76,.3);
+  transition:transform .12s, opacity .2s;}
+#auth button.go:active{transform:scale(.97);}
+#auth button.go:disabled{opacity:.55; cursor:default; box-shadow:none;}
+#auth .link{background:none; border:none; color:var(--ink-soft); font:inherit; font-weight:700;
+  font-size:13.5px; margin-top:16px; cursor:pointer; text-decoration:underline;}
+#auth .msg{min-height:18px; font-size:13px; font-weight:700; margin-top:12px;}
+#auth .msg.err{color:var(--coral-deep);} #auth .msg.ok{color:var(--mint-deep);}
+#auth .foot{margin-top:16px; font-size:11.5px; color:var(--ink-faint);}
+.auth-step{display:none;} .auth-step.on{display:block;}
+</style>
+<div id="auth" aria-live="polite">
+  <div class="auth-card">
+    <div class="auth-logo">🎯</div>
+    <h1>Called It</h1>
+    <div class="sub" id="auth-sub">Sign in to play with your crew. We'll email you a 6-digit code — no password to remember.</div>
+
+    <!-- Step 1: email -->
+    <div class="auth-step on" id="step-email">
+      <label for="auth-email">Your email</label>
+      <input id="auth-email" type="email" inputmode="email" autocomplete="email"
+        autocapitalize="off" autocorrect="off" enterkeyhint="send" placeholder="you@example.com">
+      <button class="go" id="send-code">Email me a code</button>
+    </div>
+
+    <!-- Step 2: code -->
+    <div class="auth-step" id="step-code">
+      <label for="auth-code">Enter the 6-digit code</label>
+      <input id="auth-code" class="code-in" type="text" inputmode="numeric" autocomplete="one-time-code"
+        maxlength="6" enterkeyhint="go" placeholder="••••••">
+      <button class="go" id="verify-code">Let me in</button>
+      <button class="link" id="back-email">Use a different email</button>
+    </div>
+
+    <div class="msg" id="auth-msg"></div>
+    <div class="foot">Your scores sync live across everyone's phones.</div>
+  </div>
+</div>
+
+<!-- Supabase client: the one external dependency, required to go online -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   Backend connection (Supabase)
+   The publishable key is safe to ship in the page — Row Level Security on
+   the database is what actually protects everyone's data.
+   ========================================================================= */
+const SB_URL = "https://dogsgcqlqmfthswvsotw.supabase.co";
+const SB_KEY = "sb_publishable_VJ20zOz7lsFc9BMId96WsQ_Bq2_-jaS";
+const sb = window.supabase.createClient(SB_URL, SB_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+});
+let ME = null;        // the signed-in user's id (== their profile id)
+let realtimeBound = false;
+/* =========================================================================
+   CALLED IT — a friendly prediction & confidence game
+   Single file. Vanilla JS. State lives in Supabase, synced live to everyone.
+
+   SCORING (plain language):
+     Each player says "will happen / won't happen" + a confidence 50–100%.
+     We turn that into a probability the statement is TRUE, then score it
+     with a fair calibration rule (a remapped Brier score):
+
+         points = round( (0.25 − (p − outcome)²) × 100 )
+
+     • 50% is sitting it out → always 0 points.
+     • A confident hit tops out at +25.
+     • A confident miss bottoms out at −75.
+     So bravado is risky: being confidently WRONG costs far more than being
+     confidently right earns. Humble-and-right quietly beats loud-and-wrong.
+   ========================================================================= */
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- Avatar bank: vibrant colors + friendly emoji ---------- */
+const AV_COLORS = ["#FF5B4C","#2D7DFF","#FFC93C","#22CFA0","#8B5CF6","#FF6FA5","#FF9A3C","#14B8A6","#6366F1","#EC4899"];
+const AV_EMOJI  = ["🦊","🐯","🐸","🐙","🦄","🐵","🦁","🐼","🐧","🦉","🐳","🦋","🚀","🔥","🌟","🍀","🌮","🦕","🐢","🦈"];
+
+/* ---------- Confidence presentation (the heating risk meter) ---------- */
+const CONF_LEVELS = [50,60,70,80,90,100];
+const CONF_STYLE = {
+  50 :{c:"#22CFA0", mood:"Sitting it out", note:"50% means you're staying neutral — zero points either way."},
+  60 :{c:"#16B5C2", mood:"Leaning that way", note:"A gentle nudge. Small reward, small risk."},
+  70 :{c:"#2D7DFF", mood:"Pretty sure", note:"Now there's something on the line."},
+  80 :{c:"#7A5BFF", mood:"Confident", note:"A miss here starts to sting."},
+  90 :{c:"#FF9A3C", mood:"Very sure", note:"Bold. A wrong call costs you real points."},
+  100:{c:"#FF5B4C", mood:"Betting the house 🏠", note:"All in. Nail it for +25 — whiff it for −75. No pressure."}
+};
+
+/* =========================================================================
+   State
+   ========================================================================= */
+let STATE = { players:[], predictions:[] };
+let tab = "predict";
+let booted = false;
+
+/* Transient UI state while a sheet is open */
+let draftCall = null;     // {predId, side, confidence}  (the caller is always ME)
+let resolveTarget = null; // predId being resolved
+
+/* =========================================================================
+   Live data layer
+   We pull profiles + predictions + calls from Supabase and assemble them into
+   the exact same STATE shape the v1 render code already expects:
+     players:      [{id,name,color,emoji,createdAt}]
+     predictions:  [{id,text,resolveBy,status,outcome,resolvedAt,createdAt,calls:[]}]
+       calls:      [{playerId,side,confidence,at}]
+   So every render/scoring function below stays untouched.
+   ========================================================================= */
+let refreshing = false, refreshQueued = false;
+
+async function refresh(){
+  // Coalesce bursts of realtime events into a single refetch.
+  if(refreshing){ refreshQueued = true; return; }
+  refreshing = true;
+  try{
+    const [profiles, preds, calls] = await Promise.all([
+      sb.from("profiles").select("id,name,color,emoji,created_at"),
+      sb.from("predictions").select("id,text,resolve_by,status,outcome,resolved_at,created_at"),
+      sb.from("calls").select("prediction_id,player_id,side,confidence,updated_at")
+    ]);
+    if(profiles.error || preds.error || calls.error){
+      console.warn("refresh error", profiles.error||preds.error||calls.error);
+      toast("Hiccup syncing — retrying…");
+      return;
+    }
+    STATE.players = (profiles.data||[]).map(r => ({
+      id:r.id, name:r.name, color:r.color, emoji:r.emoji,
+      createdAt: r.created_at ? Date.parse(r.created_at) : 0
+    }));
+    const byPred = {};
+    STATE.predictions = (preds.data||[]).map(r => {
+      const p = {
+        id:r.id, text:r.text, resolveBy:r.resolve_by||"",
+        status:r.status, outcome:r.outcome,
+        resolvedAt: r.resolved_at ? Date.parse(r.resolved_at) : null,
+        createdAt: r.created_at ? Date.parse(r.created_at) : 0,
+        calls:[]
+      };
+      byPred[p.id] = p; return p;
+    });
+    (calls.data||[]).forEach(c => {
+      const p = byPred[c.prediction_id]; if(!p) return;
+      p.calls.push({
+        playerId:c.player_id, side:c.side, confidence:c.confidence,
+        at: c.updated_at ? Date.parse(c.updated_at) : 0
+      });
+    });
+    if(booted) render();
+  }catch(e){
+    console.warn(e); toast("Couldn't reach the server.");
+  }finally{
+    refreshing = false;
+    if(refreshQueued){ refreshQueued = false; refresh(); }
+  }
+}
+
+/* Subscribe once: any insert/update/delete anywhere triggers a refetch,
+   so everyone's screen stays in sync within a moment. */
+function bindRealtime(){
+  if(realtimeBound) return;
+  realtimeBound = true;
+  let t = null;
+  const ping = () => { clearTimeout(t); t = setTimeout(refresh, 150); };
+  sb.channel("called-it-live")
+    .on("postgres_changes", { event:"*", schema:"public", table:"profiles" },    ping)
+    .on("postgres_changes", { event:"*", schema:"public", table:"predictions" }, ping)
+    .on("postgres_changes", { event:"*", schema:"public", table:"calls" },       ping)
+    .subscribe();
+}
+
+function me(){ return getPlayer(ME); }
+
+/* ---------- Small helpers ---------- */
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function getPlayer(id){ return STATE.players.find(p => p.id === id) || null; }
+function signed(n){ return (n>0?"+":"") + n; }
+function pct(n){ return Math.round(n*100) + "%"; }
+
+/* =========================================================================
+   Scoring & stats
+   ========================================================================= */
+// Per-call points using the remapped Brier rule (range −75…+25).
+function scoreCall(call, outcomeTrue){
+  const c = call.confidence/100;                 // 0.5…1.0
+  const pTrue = call.side === "yes" ? c : (1 - c); // probability the statement is TRUE
+  const o = outcomeTrue ? 1 : 0;
+  const brier = (pTrue - o) ** 2;                 // 0…1
+  return Math.round((0.25 - brier) * 100);        // −75…+25
+}
+
+// Aggregate every resolved prediction into per-player stats + fun leaders.
+function computeStats(){
+  const m = {};
+  STATE.players.forEach(p => m[p.id] = {
+    id:p.id, score:0, calls:0, leans:0, correct:0, sumConf:0, pending:0
+  });
+
+  STATE.predictions.forEach(pr => {
+    if(pr.status === "resolved" && (pr.outcome === true || pr.outcome === false)){
+      pr.calls.forEach(call => {
+        const s = m[call.playerId]; if(!s) return;
+        s.score += scoreCall(call, pr.outcome);
+        s.calls += 1;
+        if(call.confidence > 50){
+          s.leans += 1;
+          s.sumConf += call.confidence;
+          const leanedTrue = call.side === "yes";
+          if(leanedTrue === pr.outcome) s.correct += 1;
+        }
+      });
+    } else if(pr.status === "pending"){
+      pr.calls.forEach(call => { if(m[call.playerId]) m[call.playerId].pending += 1; });
+    }
+  });
+
+  const list = Object.values(m).map(s => ({
+    ...s,
+    accuracy: s.leans ? s.correct/s.leans : null,
+    avgConf : s.leans ? s.sumConf/s.leans : null,
+    // overconfidence = how much your confidence outran your accuracy
+    overconf: s.leans>=2 ? (s.sumConf/s.leans) - (s.correct/s.leans)*100 : null
+  }));
+
+  // Rank: score desc → accuracy desc → name
+  list.sort((a,b) => b.score - a.score
+    || (b.accuracy||0) - (a.accuracy||0)
+    || getPlayer(a.id).name.localeCompare(getPlayer(b.id).name));
+
+  // Fun awards
+  const scored = list.filter(s => s.calls > 0);
+  const oracle = scored.length ? scored[0] : null;
+  let house = null, active = null;
+  scored.forEach(s => {
+    if(s.overconf != null && s.overconf > 8 && (!house || s.overconf > house.overconf)) house = s;
+    if(!active || s.calls > active.calls) active = s;
+  });
+  return { list, oracle, house, active, anyScored: scored.length > 0 };
+}
+
+/* =========================================================================
+   Render: tabs
+   ========================================================================= */
+function render(){
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-" + tab).classList.add("active");
+  if(tab === "predict") renderPredict();
+  else if(tab === "board") renderBoard();
+  else if(tab === "history") renderHistory();
+  else if(tab === "crew") renderCrew();
+}
+
+/* ---------- PREDICT (active game) ---------- */
+function renderPredict(){
+  const el = document.getElementById("view-predict");
+  const pending = STATE.predictions.filter(p => p.status === "pending")
+                    .sort((a,b) => b.createdAt - a.createdAt);
+
+  let html = `<div class="view-head"><h1>What's going to happen?</h1>
+    <p>Make a call, commit to it, and see who actually nailed it.</p></div>`;
+
+  if(STATE.players.length === 0){
+    html += emptyState("👋","Add your crew first",
+      "Predictions need players. Round up a few friends to get started.",
+      `<button class="btn coral" data-action="nav" data-tab="crew">Add friends</button>`);
+    el.innerHTML = html; return;
+  }
+
+  html += `<button class="btn coral" style="margin-bottom:16px" data-action="new-pred">＋ New prediction</button>`;
+
+  if(pending.length === 0){
+    html += emptyState("🔮","No open predictions",
+      "Call something — the weather, the game, your friend's love life. Anything goes.");
+  } else {
+    pending.forEach(p => html += predictionCard(p));
+  }
+  el.innerHTML = html;
+}
+
+function predictionCard(p){
+  const total = STATE.players.length;
+  const called = p.calls.length;
+  // Crowd consensus = average probability the statement is TRUE
+  let consensusHtml = "";
+  if(called){
+    const avg = p.calls.reduce((sum,c) => sum + (c.side==="yes" ? c.confidence/100 : 1-c.confidence/100), 0)/called;
+    consensusHtml = `<div class="consensus">
+      <span>Crowd</span>
+      <div class="cbar"><span style="width:${Math.round(avg*100)}%"></span></div>
+      <span class="bold" style="color:var(--ink)">${Math.round(avg*100)}% yes</span>
+    </div>`;
+  }
+  const callerChips = p.calls.map(c => {
+    const pl = getPlayer(c.playerId); if(!pl) return "";
+    const dotColor = c.side==="yes" ? "var(--mint)" : "var(--blue)";
+    return `<span class="caller-chip">
+      <span class="sidedot" style="background:${dotColor}">${c.side==="yes"?"✓":"✕"}</span>
+      ${esc(pl.name)} · ${c.confidence}%</span>`;
+  }).join("");
+
+  let dateMeta = "";
+  if(p.resolveBy){
+    const overdue = isPast(p.resolveBy);
+    dateMeta = `<span class="pill ${overdue?'warn':'grey'}">${overdue?'⏰ due ':'📅 by '}${fmtDate(p.resolveBy)}</span>`;
+  }
+
+  return `<div class="card pred">
+    <div class="statement">${esc(p.text)}</div>
+    <div class="meta">
+      <span class="pill live">🟢 ${called}/${total} called</span>
+      ${dateMeta}
+    </div>
+    ${consensusHtml}
+    ${callerChips ? `<div class="callers">${callerChips}</div>` : ""}
+    <div class="pred-actions">
+      <button class="btn ghost" data-action="open-call" data-pred="${p.id}">📣 Make a call</button>
+      <button class="btn mint" data-action="open-resolve" data-pred="${p.id}">✅ Resolve</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- LEADERBOARD ---------- */
+function renderBoard(){
+  const el = document.getElementById("view-board");
+  const stats = computeStats();
+
+  let html = `<div class="view-head"><h1>The Scoreboard</h1>
+    <p>Most accurate and best-calibrated rises to the top.</p></div>`;
+
+  if(!stats.anyScored){
+    html += emptyState("🏆","No scores yet",
+      "Resolve a prediction and the points roll in. Someone's about to get crowned.",
+      STATE.predictions.some(p=>p.status==="pending")
+        ? `<button class="btn coral" data-action="nav" data-tab="predict">Go resolve one</button>`
+        : `<button class="btn coral" data-action="nav" data-tab="predict">Make a prediction</button>`);
+    el.innerHTML = html; return;
+  }
+
+  // Fun callouts
+  if(stats.oracle){
+    const o = getPlayer(stats.oracle.id);
+    html += `<div class="callout active" style="background:linear-gradient(135deg,#FFC93C,#FF9A3C)">
+      <div class="emoji">${o.emoji}</div>
+      <div><div class="label">🏆 The Oracle</div>
+      <div class="who">${esc(o.name)}</div>
+      <div class="sub">Top of the board with ${signed(stats.oracle.score)} points</div></div>
+    </div>`;
+  }
+  if(stats.house){
+    const h = getPlayer(stats.house.id);
+    html += `<div class="callout house">
+      <div class="emoji">🏠</div>
+      <div><div class="label">Most likely to bet the house</div>
+      <div class="who">${esc(h.name)}</div>
+      <div class="sub">Confidence running ~${Math.round(stats.house.overconf)} pts ahead of accuracy</div></div>
+    </div>`;
+  }
+
+  html += `<div style="height:6px"></div>`;
+
+  // Ranked rows (only players who have made calls show a real score)
+  const ranked = stats.list.filter(s => s.calls > 0);
+  const idle   = stats.list.filter(s => s.calls === 0);
+
+  ranked.forEach((s, i) => {
+    const p = getPlayer(s.id);
+    const cls = s.score>0 ? "pos" : s.score<0 ? "neg" : "neu";
+    const medal = ["🥇","🥈","🥉"][i] || (i+1);
+    const title = (i===0) ? `<span class="title">The Oracle</span>` : "";
+    const acc = s.accuracy==null ? "—" : pct(s.accuracy);
+    html += `<div class="lb-row ${i===0?'first':''}">
+      <div class="lb-rank">${medal}</div>
+      <div class="avatar" style="background:${p.color}">${p.emoji}</div>
+      <div class="lb-main">
+        <div class="lb-name">${esc(p.name)} ${title}</div>
+        <div class="lb-stats">${acc} accurate · ${s.calls} call${s.calls===1?"":"s"}${s.leans?` · avg ${Math.round(s.avgConf)}% sure`:""}</div>
+      </div>
+      <div class="lb-score ${cls}" data-count="${s.score}">0</div>
+    </div>`;
+  });
+
+  if(idle.length){
+    html += `<div class="tiny muted center" style="margin:14px 0 8px">Haven't called anything yet</div>`;
+    idle.forEach(s => {
+      const p = getPlayer(s.id);
+      html += `<div class="lb-row" style="opacity:.7">
+        <div class="lb-rank">·</div>
+        <div class="avatar" style="background:${p.color}">${p.emoji}</div>
+        <div class="lb-main"><div class="lb-name">${esc(p.name)}</div>
+        <div class="lb-stats">Waiting on the sidelines</div></div>
+        <div class="lb-score neu">—</div>
+      </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+  // Satisfying count-up on the scores
+  el.querySelectorAll("[data-count]").forEach(node => {
+    countUp(node, parseInt(node.dataset.count,10));
+  });
+}
+
+/* ---------- HISTORY ---------- */
+function renderHistory(){
+  const el = document.getElementById("view-history");
+  const resolved = STATE.predictions.filter(p => p.status === "resolved")
+                     .sort((a,b) => (b.resolvedAt||0) - (a.resolvedAt||0));
+  const pending = STATE.predictions.filter(p => p.status === "pending")
+                     .sort((a,b) => b.createdAt - a.createdAt);
+
+  let html = `<div class="view-head"><h1>The Feed</h1>
+    <p>Every call, every outcome, every "I told you so."</p></div>`;
+
+  if(resolved.length === 0 && pending.length === 0){
+    html += emptyState("📜","Nothing here yet","Resolved and open predictions will show up here as the game unfolds.");
+    el.innerHTML = html; return;
+  }
+
+  if(resolved.length){
+    resolved.forEach(p => html += resolvedCard(p));
+  }
+  if(pending.length){
+    html += `<div class="tiny muted bold" style="margin:18px 4px 10px; text-transform:uppercase; letter-spacing:.06em">Still open</div>`;
+    pending.forEach(p => html += pendingMini(p));
+  }
+  el.innerHTML = html;
+}
+
+function resolvedCard(p){
+  const outcome = p.outcome === true;
+  const lines = p.calls
+    .map(c => ({ c, pts: scoreCall(c, p.outcome) }))
+    .sort((a,b) => b.pts - a.pts)
+    .map(({c,pts}) => {
+      const pl = getPlayer(c.playerId); if(!pl) return "";
+      const cls = pts>0?"up":pts<0?"down":"zero";
+      const leanedTrue = c.side==="yes";
+      const nailed = c.confidence>50 && (leanedTrue === p.outcome);
+      return `<div class="result-line">
+        <div class="avatar sm" style="background:${pl.color}">${pl.emoji}</div>
+        <span class="name">${esc(pl.name)} ${nailed?'🎯':''}</span>
+        <span class="call">${c.side==="yes"?"YES":"NO"} ${c.confidence}%</span>
+        <span class="delta ${cls}">${signed(pts)}</span>
+      </div>`;
+    }).join("");
+
+  return `<div class="card">
+    <div class="row spread" style="align-items:flex-start; margin-bottom:10px">
+      <div class="statement" style="flex:1; margin:0">${esc(p.text)}</div>
+      <span class="stamp ${outcome?'t':'f'}">${outcome?'IT HAPPENED':"DIDN'T HAPPEN"}</span>
+    </div>
+    ${p.calls.length ? lines : `<div class="tiny muted">No one called this one.</div>`}
+  </div>`;
+}
+
+function pendingMini(p){
+  return `<div class="card" style="padding:13px 15px">
+    <div class="row spread">
+      <div style="flex:1; min-width:0">
+        <div class="bold" style="font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(p.text)}</div>
+        <div class="tiny muted">${p.calls.length} call${p.calls.length===1?"":"s"} so far${p.resolveBy?` · due ${fmtDate(p.resolveBy)}`:""}</div>
+      </div>
+      <button class="btn ghost tiny-btn" data-action="open-resolve" data-pred="${p.id}">Resolve</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- CREW (live roster of everyone signed in) ---------- */
+function renderCrew(){
+  const el = document.getElementById("view-crew");
+  const stats = computeStats();
+  const byId = {}; stats.list.forEach(s => byId[s.id] = s);
+
+  let html = `<div class="view-head"><h1>Your Crew</h1>
+    <p>Everyone who's signed in to play. Share the link to bring more friends in.</p></div>`;
+  html += `<button class="btn coral" style="margin-bottom:16px" data-action="edit-profile">✏️ Edit your profile</button>`;
+
+  if(STATE.players.length === 0){
+    html += emptyState("👥","Just you so far","Send your friends the link — when they sign in they'll show up right here.");
+    el.innerHTML = html; return;
+  }
+
+  // Put yourself first, then everyone else.
+  const ordered = STATE.players.slice().sort((a,b) =>
+    (a.id===ME?-1:0) - (b.id===ME?-1:0) || a.name.localeCompare(b.name));
+
+  ordered.forEach(p => {
+    const s = byId[p.id] || {score:0, calls:0};
+    const youTag = p.id===ME ? ` <span class="pill live" style="margin-left:6px">you</span>` : "";
+    html += `<div class="crew-row"${p.id===ME?' style="border-color:var(--coral)"':''}>
+      <div class="avatar" style="background:${p.color}">${p.emoji}</div>
+      <div class="nm">${esc(p.name)}${youTag}</div>
+      <div class="sc">${s.calls? signed(s.score)+" pts" : "no calls yet"}</div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+/* Shared empty-state markup */
+function emptyState(emoji, title, body, action=""){
+  return `<div class="empty"><div class="big">${emoji}</div>
+    <h3>${title}</h3><p>${body}</p>${action}</div>`;
+}
+
+/* =========================================================================
+   Date helpers
+   ========================================================================= */
+function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function isPast(ds){
+  const t = new Date(ds + "T23:59:59");
+  return t.getTime() < Date.now();
+}
+function fmtDate(ds){
+  const d = new Date(ds + "T12:00:00");
+  return d.toLocaleDateString(undefined, {month:"short", day:"numeric"});
+}
+
+/* =========================================================================
+   Sheets (bottom modal)
+   ========================================================================= */
+const backdrop = document.getElementById("backdrop");
+const sheet = document.getElementById("sheet");
+const sheetBody = document.getElementById("sheet-body");
+
+function openSheet(html){
+  sheetBody.innerHTML = html;
+  backdrop.classList.add("show");
+  sheet.classList.add("show");
+  sheetBody.scrollTop = 0;
+}
+function closeSheet(){
+  backdrop.classList.remove("show");
+  sheet.classList.remove("show");
+  draftCall = null; resolveTarget = null;
+}
+
+/* ---------- Your profile (name + look) ---------- */
+let avatarPick = null;
+function rollAvatar(){
+  const usedC = new Set(STATE.players.filter(p=>p.id!==ME).map(p=>p.color));
+  const usedE = new Set(STATE.players.filter(p=>p.id!==ME).map(p=>p.emoji));
+  const colors = AV_COLORS.filter(c=>!usedC.has(c));
+  const emojis = AV_EMOJI.filter(e=>!usedE.has(e));
+  const color = (colors.length?colors:AV_COLORS)[Math.floor(Math.random()*(colors.length?colors.length:AV_COLORS.length))];
+  const emoji = (emojis.length?emojis:AV_EMOJI)[Math.floor(Math.random()*(emojis.length?emojis.length:AV_EMOJI.length))];
+  avatarPick = {color, emoji};
+}
+function sheetEditProfile(){
+  const mine = me();
+  avatarPick = mine ? {color:mine.color, emoji:mine.emoji} : (rollAvatar(), avatarPick);
+  openSheet(`
+    <div class="sheet-title">You in the game</div>
+    <div class="sheet-sub">This is how your crew sees you. Tap the dice for a new look.</div>
+    <div class="row" style="gap:14px; margin-bottom:18px">
+      <div class="avatar lg" id="av-prev" style="background:${avatarPick.color}">${avatarPick.emoji}</div>
+      <button class="btn ghost sm" data-action="reroll-avatar">🎲 Reshuffle look</button>
+    </div>
+    <label class="fl" for="pname">Display name</label>
+    <input class="field" id="pname" type="text" inputmode="text" autocomplete="off"
+      autocapitalize="words" enterkeyhint="done" maxlength="22" placeholder="e.g. Sam"
+      value="${mine ? esc(mine.name) : ""}">
+    <button class="btn coral" data-action="save-profile">Save</button>
+  `);
+  setTimeout(()=>{ const i=document.getElementById("pname"); if(i){i.focus();} }, 250);
+}
+async function saveProfile(){
+  const input = document.getElementById("pname");
+  const name = (input.value||"").trim();
+  if(!name){ input.focus(); shake(input); return; }
+  const btn = document.querySelector('[data-action="save-profile"]');
+  if(btn){ btn.disabled = true; btn.textContent = "Saving…"; }
+  const { error } = await sb.from("profiles")
+    .update({ name, color:avatarPick.color, emoji:avatarPick.emoji })
+    .eq("id", ME);
+  if(error){ toast("Couldn't save your profile."); if(btn){btn.disabled=false; btn.textContent="Save";} return; }
+  await refresh();
+  closeSheet();
+  toast(`Looking good ${avatarPick.emoji}`);
+}
+
+/* ---------- New prediction ---------- */
+function sheetNewPrediction(){
+  openSheet(`
+    <div class="sheet-title">New prediction</div>
+    <div class="sheet-sub">Say what'll happen. Keep it clear enough to call TRUE or FALSE later.</div>
+    <label class="fl" for="ptext">The prediction</label>
+    <textarea class="field" id="ptext" inputmode="text" autocapitalize="sentences" enterkeyhint="done"
+      maxlength="160" placeholder="It'll rain at the BBQ on Saturday"></textarea>
+    <label class="fl" for="pdate">Resolve by <span class="faint">(optional)</span></label>
+    <input class="field" id="pdate" type="date" min="${todayStr()}">
+    <button class="btn coral" data-action="save-pred">Post it</button>
+  `);
+  setTimeout(()=>{ const i=document.getElementById("ptext"); if(i){i.focus();} }, 250);
+}
+async function savePrediction(){
+  const ta = document.getElementById("ptext");
+  const text = (ta.value||"").trim();
+  if(!text){ ta.focus(); shake(ta); return; }
+  const resolveBy = document.getElementById("pdate").value || null;
+  const btn = document.querySelector('[data-action="save-pred"]');
+  if(btn){ btn.disabled = true; btn.textContent = "Posting…"; }
+  const { error } = await sb.from("predictions")
+    .insert({ text, resolve_by: resolveBy, created_by: ME });
+  if(error){ toast("Couldn't post that — try again."); if(btn){btn.disabled=false; btn.textContent="Post it";} return; }
+  await refresh();
+  closeSheet();
+  tab = "predict"; render();
+  toast("Prediction is live — make your call! 📣");
+}
+
+/* ---------- Make a call (always as the signed-in player) ---------- */
+function sheetCall(predId){
+  const pred = STATE.predictions.find(p=>p.id===predId);
+  if(!pred || pred.status !== "pending") return;
+  const existing = pred.calls.find(c=>c.playerId===ME);
+  draftCall = {
+    predId,
+    side: existing ? existing.side : null,
+    confidence: existing ? existing.confidence : null
+  };
+  renderCallSheet();
+}
+function renderCallSheet(){
+  const pred = STATE.predictions.find(p=>p.id===draftCall.predId);
+  const mine = me();
+  const already = pred.calls.find(c=>c.playerId===ME);
+
+  let body = `
+    <div class="sheet-title">${already ? "Change your call" : "Make a call"}</div>
+    <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(pred.text)}"</div>
+    <div class="row" style="gap:10px; margin:2px 0 6px; align-items:center">
+      <span class="avatar sm" style="background:${mine?mine.color:'#ccc'}">${mine?mine.emoji:'🙂'}</span>
+      <span class="bold">${mine?esc(mine.name):"You"}</span>
+      <span class="tiny muted">your call only</span>
+    </div>
+    <label class="fl">Your call</label>
+    <div class="yn">
+      <button class="yes ${draftCall.side==='yes'?'on':''}" data-action="pick-side" data-side="yes">
+        Will happen<span class="lab">YES, I'm calling it</span></button>
+      <button class="no ${draftCall.side==='no'?'on':''}" data-action="pick-side" data-side="no">
+        Won't happen<span class="lab">NO, not a chance</span></button>
+    </div>`;
+
+  if(draftCall.side){
+    const conf = draftCall.confidence;
+    const st = conf ? CONF_STYLE[conf] : null;
+    body += `
+    <div class="conf-head">
+      <span class="fl" style="margin:0">How sure?</span>
+      ${conf?`<span class="conf-val" style="color:${st.c}">${conf}%</span>`:`<span class="conf-mood faint">pick a level</span>`}
+    </div>
+    <div class="conf-grid">
+      ${CONF_LEVELS.map(lv => `<button data-action="pick-conf" data-conf="${lv}"
+          class="${conf===lv?'on':''}" style="${conf===lv?`background:${CONF_STYLE[lv].c}`:''}">${lv}</button>`).join("")}
+    </div>
+    <div class="conf-note" ${st?`style="color:${st.c}"`:''}>${st? st.mood + " — " + st.note : "50% is sitting it out · 100% is betting the house"}</div>
+    <button class="btn coral" data-action="save-call" ${conf?'':'disabled'}>Lock it in 🔒</button>`;
+  }
+  openSheet(body);
+}
+async function saveCall(){
+  if(!draftCall || !draftCall.side || !draftCall.confidence) return;
+  const predId = draftCall.predId;
+  const side = draftCall.side, confidence = draftCall.confidence;
+  const btn = document.querySelector('[data-action="save-call"]');
+  if(btn){ btn.disabled = true; btn.textContent = "Locking in…"; }
+  const { error } = await sb.from("calls").upsert(
+    { prediction_id: predId, player_id: ME, side, confidence },
+    { onConflict: "prediction_id,player_id" }
+  );
+  if(error){
+    toast(/resolved/i.test(error.message) ? "Too late — that one's resolved." : "Couldn't save your call.");
+    if(btn){ btn.disabled=false; btn.textContent="Lock it in 🔒"; }
+    return;
+  }
+  await refresh();
+  closeSheet();
+  burstAtCenter();
+  toast("Locked it in! 🔒");
+}
+
+/* ---------- Resolve ---------- */
+function sheetResolve(predId){
+  const pred = STATE.predictions.find(p=>p.id===predId);
+  if(!pred) return;
+  resolveTarget = predId;
+  if(pred.calls.length === 0){
+    openSheet(`
+      <div class="sheet-title">Resolve prediction</div>
+      <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(pred.text)}"</div>
+      <div class="empty" style="padding:18px 0 8px"><div class="big">🤷</div>
+        <h3>No calls on this one</h3>
+        <p>Nobody made a call, so there are no points to hand out. Resolve it anyway to file it away?</p></div>
+      <div class="tf">
+        <button class="true" data-action="do-resolve" data-out="true"><span class="em">✅</span>It happened</button>
+        <button class="false" data-action="do-resolve" data-out="false"><span class="em">❌</span>It didn't</button>
+      </div>`);
+    return;
+  }
+  openSheet(`
+    <div class="sheet-title">How did it turn out?</div>
+    <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(pred.text)}"</div>
+    <p class="tiny muted" style="margin:0 2px 8px">${pred.calls.length} ${pred.calls.length===1?"person":"people"} put points on the line. Time to find out.</p>
+    <div class="tf">
+      <button class="true" data-action="do-resolve" data-out="true"><span class="em">✅</span>It happened<span style="font-size:11px; font-weight:700; opacity:.85">TRUE</span></button>
+      <button class="false" data-action="do-resolve" data-out="false"><span class="em">❌</span>It didn't<span style="font-size:11px; font-weight:700; opacity:.85">FALSE</span></button>
+    </div>`);
+}
+async function doResolve(outcomeTrue){
+  const predId = resolveTarget;
+  const pred = STATE.predictions.find(p=>p.id===predId);
+  if(!pred) return;
+  const btns = document.querySelectorAll('[data-action="do-resolve"]');
+  btns.forEach(b=>{ b.disabled = true; });
+
+  const { error } = await sb.rpc("resolve_prediction", { pred_id: predId, did_happen: !!outcomeTrue });
+  if(error){
+    toast("Couldn't resolve — someone may have beaten you to it.");
+    await refresh();
+    closeSheet();
+    return;
+  }
+  await refresh();
+
+  const resolved = STATE.predictions.find(p=>p.id===predId);
+  const outcome = resolved ? resolved.outcome : !!outcomeTrue;
+
+  // Build the results breakdown from freshly-synced data
+  const rows = (resolved ? resolved.calls : [])
+    .map(c => ({ c, pts: scoreCall(c, outcome), pl:getPlayer(c.playerId) }))
+    .filter(r => r.pl)
+    .sort((a,b) => b.pts - a.pts);
+
+  const anyWin = rows.some(r => r.c.confidence>50 && ((r.c.side==="yes") === outcome));
+
+  if(rows.length === 0){
+    closeSheet(); render(); toast("Filed away. 🗂️");
+    return;
+  }
+
+  const lines = rows.map(({c,pts,pl}) => {
+    const cls = pts>0?"up":pts<0?"down":"zero";
+    const nailed = c.confidence>50 && ((c.side==="yes") === outcome);
+    return `<div class="result-line">
+      <div class="avatar sm" style="background:${pl.color}">${pl.emoji}</div>
+      <span class="name">${esc(pl.name)} ${nailed?'🎯':''}</span>
+      <span class="call">${c.side==="yes"?"YES":"NO"} ${c.confidence}%</span>
+      <span class="delta ${cls}">${signed(pts)}</span>
+    </div>`;
+  }).join("");
+
+  const topName = rows[0].pts>0 ? esc(rows[0].pl.name) : null;
+  const headline = anyWin
+    ? (topName ? `${topName} called it! 🎉` : "Called it! 🎉")
+    : "Ooof — the crowd missed this one.";
+
+  openSheet(`
+    <div class="sheet-title">${outcome ? "It happened! ✅" : "It didn't happen ❌"}</div>
+    <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(resolved?resolved.text:pred.text)}"</div>
+    <div class="card" style="margin:4px 0 16px">${lines}</div>
+    <div class="center bold" style="font-size:16px; margin-bottom:14px">${headline}</div>
+    <button class="btn coral" data-action="close-sheet">Nice 👏</button>
+  `);
+
+  render();
+  if(anyWin) bigConfetti(); else burstAtCenter();
+}
+
+/* =========================================================================
+   Settings sheet
+   ========================================================================= */
+function sheetSettings(){
+  const mine = me();
+  openSheet(`
+    <div class="sheet-title">Settings</div>
+    <div class="sheet-sub">Your profile, how scoring works, and a backup if you want one.</div>
+
+    ${mine ? `<div class="set-item" data-action="edit-profile">
+      <div class="si-ico avatar" style="background:${mine.color}; color:#fff">${mine.emoji}</div>
+      <div class="si-main"><div class="si-t">${esc(mine.name)} <span class="tiny faint">(you)</span></div>
+        <div class="si-d">Change your name or look</div></div>
+      <div class="chev">›</div>
+    </div>` : ""}
+
+    <div class="explain">
+      <h4>How scoring works 🎯</h4>
+      <p>Everyone picks <b>will / won't happen</b> and how sure they are (50–100%). The surer you are, the more you can win — or lose.</p>
+      <p>Here's the twist that keeps people honest: a confident <i>miss</i> hurts way more than a confident hit helps. So bragging is risky.</p>
+      <div class="ex-row"><span>Said 100% and nailed it</span><span style="color:var(--mint-deep)">+25</span></div>
+      <div class="ex-row"><span>Said 70% and nailed it</span><span style="color:var(--mint-deep)">+16</span></div>
+      <div class="ex-row"><span>Sat it out at 50%</span><span style="color:var(--ink-faint)">0</span></div>
+      <div class="ex-row"><span>Said 70% and whiffed</span><span style="color:var(--coral-deep)">−24</span></div>
+      <div class="ex-row"><span>Said 100% and whiffed</span><span style="color:var(--coral-deep)">−75</span></div>
+    </div>
+
+    <div class="set-item" data-action="export">
+      <div class="si-ico" style="background:linear-gradient(135deg,var(--blue),#1E63E0)">⬇️</div>
+      <div class="si-main"><div class="si-t">Export a backup</div>
+        <div class="si-d">Download the whole game as JSON</div></div>
+      <div class="chev">›</div>
+    </div>
+    <div class="set-item" data-action="sign-out">
+      <div class="si-ico" style="background:linear-gradient(135deg,var(--ink-soft),var(--ink))">🚪</div>
+      <div class="si-main"><div class="si-t">Sign out</div>
+        <div class="si-d">You'll stay in the game — just log back in anytime</div></div>
+      <div class="chev">›</div>
+    </div>
+
+    <div class="tiny faint center" style="margin-top:18px">Everyone's calls sync live. ✨</div>
+  `);
+}
+
+function exportGame(){
+  try{
+    const data = JSON.stringify(STATE, null, 2);
+    const blob = new Blob([data], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url; a.download = `called-it-${stamp}.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    toast("Backup saved ⬇️");
+  }catch(e){ toast("Couldn't export — try again."); }
+}
+
+async function signOut(){
+  closeSheet();
+  try{ await sb.auth.signOut(); }catch(e){}
+  // Auth state listener handles showing the sign-in screen.
+}
+
+/* =========================================================================
+   Confetti (canvas, dependency-free)
+   ========================================================================= */
+const canvas = document.getElementById("confetti");
+const ctx = canvas.getContext("2d");
+let particles = [];
+let rafId = null;
+function sizeCanvas(){
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+sizeCanvas();
+window.addEventListener("resize", sizeCanvas);
+
+const CONFETTI_COLORS = ["#FF5B4C","#2D7DFF","#FFC93C","#22CFA0","#8B5CF6","#FF6FA5","#FF9A3C"];
+function spawn(x, y, count, power){
+  for(let i=0;i<count;i++){
+    const a = Math.random()*Math.PI*2;
+    const sp = power*(0.4 + Math.random()*0.9);
+    particles.push({
+      x, y,
+      vx: Math.cos(a)*sp,
+      vy: Math.sin(a)*sp - power*0.5,
+      g: 0.28 + Math.random()*0.12,
+      size: 6 + Math.random()*7,
+      rot: Math.random()*Math.PI,
+      vr: (Math.random()-0.5)*0.35,
+      color: CONFETTI_COLORS[(Math.random()*CONFETTI_COLORS.length)|0],
+      life: 1,
+      shape: Math.random()<0.5 ? "rect" : "circle"
+    });
+  }
+  if(!rafId) tick();
+}
+function tick(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  particles = particles.filter(p => p.life > 0 && p.y < window.innerHeight + 40);
+  particles.forEach(p => {
+    p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= 0.006;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.fillStyle = p.color;
+    if(p.shape === "rect") ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size*0.6);
+    else { ctx.beginPath(); ctx.arc(0,0,p.size/2,0,Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  });
+  if(particles.length){ rafId = requestAnimationFrame(tick); }
+  else { rafId = null; ctx.clearRect(0,0,canvas.width,canvas.height); }
+}
+function burstAtCenter(){
+  if(reduceMotion) return;
+  spawn(window.innerWidth/2, window.innerHeight*0.5, 26, 9);
+}
+function bigConfetti(){
+  if(reduceMotion) return;
+  const w = window.innerWidth, h = window.innerHeight;
+  spawn(w*0.5, h*0.42, 70, 13);
+  setTimeout(()=>spawn(w*0.25, h*0.5, 36, 11), 110);
+  setTimeout(()=>spawn(w*0.75, h*0.5, 36, 11), 200);
+}
+
+/* =========================================================================
+   Toast + tiny animations
+   ========================================================================= */
+function toast(msg, win){
+  const wrap = document.getElementById("toast-wrap");
+  const t = document.createElement("div");
+  t.className = "toast" + (win?" win":"");
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(()=>{ t.classList.add("out"); setTimeout(()=>t.remove(), 320); }, 2200);
+}
+function shake(el){
+  el.animate(
+    [{transform:"translateX(0)"},{transform:"translateX(-7px)"},{transform:"translateX(7px)"},
+     {transform:"translateX(-4px)"},{transform:"translateX(0)"}],
+    {duration:300, easing:"ease"}
+  );
+}
+function countUp(node, to){
+  if(reduceMotion){ node.textContent = signed(to); return; }
+  const dur = 600, start = performance.now();
+  function step(now){
+    const k = Math.min(1, (now-start)/dur);
+    const eased = 1 - Math.pow(1-k, 3);
+    node.textContent = signed(Math.round(to * eased));
+    if(k < 1) requestAnimationFrame(step);
+    else node.textContent = signed(to);
+  }
+  requestAnimationFrame(step);
+}
+
+/* =========================================================================
+   Event delegation — one listener to rule them all
+   ========================================================================= */
+document.addEventListener("click", (e) => {
+  const target = e.target.closest("[data-action]");
+  if(!target) return;
+  const a = target.dataset.action;
+
+  switch(a){
+    case "nav":
+      tab = target.dataset.tab; render(); break;
+
+    case "open-settings": sheetSettings(); break;
+    case "close-sheet": closeSheet(); break;
+
+    /* Profile look shuffle (in the edit-profile sheet) */
+    case "reroll-avatar":
+      rollAvatar();
+      { const prev=document.getElementById("av-prev");
+        if(prev){ prev.style.background=avatarPick.color; prev.textContent=avatarPick.emoji; prev.classList.remove("pop"); void prev.offsetWidth; prev.classList.add("pop"); } }
+      break;
+
+    /* Predictions */
+    case "new-pred": sheetNewPrediction(); break;
+    case "save-pred": savePrediction(); break;
+
+    /* Calls (always as the signed-in player) */
+    case "open-call": sheetCall(target.dataset.pred); break;
+    case "pick-side":
+      draftCall.side = target.dataset.side; renderCallSheet(); break;
+    case "pick-conf":
+      draftCall.confidence = parseInt(target.dataset.conf,10); renderCallSheet(); break;
+    case "save-call": saveCall(); break;
+
+    /* Resolve */
+    case "open-resolve": sheetResolve(target.dataset.pred); break;
+    case "do-resolve": doResolve(target.dataset.out === "true"); break;
+
+    /* Profile + settings actions */
+    case "edit-profile": sheetEditProfile(); break;
+    case "save-profile": saveProfile(); break;
+    case "export": exportGame(); break;
+    case "sign-out": signOut(); break;
+  }
+});
+
+/* Close sheet on Escape (desktop nicety) */
+document.addEventListener("keydown", (e) => { if(e.key === "Escape") closeSheet(); });
+
+/* =========================================================================
+   Auth — passwordless email code (magic-code). Stays signed in via Supabase
+   session persistence; the token refreshes itself in the background.
+   ========================================================================= */
+const authEl   = document.getElementById("auth");
+const stepEmail = document.getElementById("step-email");
+const stepCode  = document.getElementById("step-code");
+const emailIn   = document.getElementById("auth-email");
+const codeIn    = document.getElementById("auth-code");
+const authMsg   = document.getElementById("auth-msg");
+let pendingEmail = "";
+
+function showAuth(show){ authEl.classList.toggle("show", show); }
+function authStep(which){
+  stepEmail.classList.toggle("on", which==="email");
+  stepCode.classList.toggle("on", which==="code");
+  authMsg.className = "msg"; authMsg.textContent = "";
+}
+function authSay(text, kind){ authMsg.className = "msg" + (kind?(" "+kind):""); authMsg.textContent = text; }
+
+async function sendCode(){
+  const email = (emailIn.value||"").trim().toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ authSay("That doesn't look like an email.", "err"); emailIn.focus(); return; }
+  const btn = document.getElementById("send-code");
+  btn.disabled = true; btn.textContent = "Sending…";
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true } });
+  btn.disabled = false; btn.textContent = "Email me a code";
+  if(error){ authSay(error.message || "Couldn't send the code — try again.", "err"); return; }
+  pendingEmail = email;
+  authStep("code");
+  authSay("Code sent! Check your inbox (and spam).", "ok");
+  setTimeout(()=>codeIn.focus(), 200);
+}
+async function verifyCode(){
+  const token = (codeIn.value||"").replace(/\D/g,"");
+  if(token.length !== 6){ authSay("Enter the 6-digit code.", "err"); codeIn.focus(); return; }
+  const btn = document.getElementById("verify-code");
+  btn.disabled = true; btn.textContent = "Checking…";
+  const { error } = await sb.auth.verifyOtp({ email: pendingEmail, token, type: "email" });
+  btn.disabled = false; btn.textContent = "Let me in";
+  if(error){ authSay("That code didn't work. Try again, or resend.", "err"); codeIn.select(); return; }
+  // Success → onAuthStateChange fires and boots the app.
+}
+
+document.getElementById("send-code").addEventListener("click", sendCode);
+document.getElementById("verify-code").addEventListener("click", verifyCode);
+document.getElementById("back-email").addEventListener("click", () => { authStep("email"); emailIn.focus(); });
+emailIn.addEventListener("keydown", e => { if(e.key==="Enter") sendCode(); });
+codeIn.addEventListener("keydown", e => { if(e.key==="Enter") verifyCode(); });
+
+/* =========================================================================
+   Startup
+   ========================================================================= */
+async function startApp(session){
+  ME = session.user.id;
+  showAuth(false);
+  // A profile is auto-created by a DB trigger on signup; make sure it's there
+  // before the first paint (covers the very first session after verifying).
+  await refresh();
+  if(!getPlayer(ME)){
+    // Rare race: trigger hasn't landed yet. Poll briefly.
+    for(let i=0;i<5 && !getPlayer(ME);i++){ await new Promise(r=>setTimeout(r,400)); await refresh(); }
+  }
+  booted = true;
+  bindRealtime();
+  tab = "predict";
+  render();
+}
+
+function stopApp(){
+  ME = null; booted = false;
+  STATE = { players:[], predictions:[] };
+  authStep("email");
+  if(emailIn) emailIn.value = "";
+  if(codeIn) codeIn.value = "";
+  showAuth(true);
+}
+
+// React to login/logout for the whole lifetime of the page.
+sb.auth.onAuthStateChange((_event, session) => {
+  if(session && !booted){ startApp(session); }
+  else if(!session && booted){ stopApp(); }
+});
+
+// First load: do we already have a saved session?
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){ startApp(session); }
+  else { showAuth(true); }
+})();
+</script>
+</body>
+</html>
