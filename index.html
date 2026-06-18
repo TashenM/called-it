@@ -500,6 +500,33 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 #auth .msg.err{color:var(--coral-deep);} #auth .msg.ok{color:var(--mint-deep);}
 #auth .foot{margin-top:16px; font-size:11.5px; color:var(--ink-faint);}
 .auth-step{display:none;} .auth-step.on{display:block;}
+
+/* ===== Leaderboard: window tabs + champion spotlight ===== */
+.lb-tabs{display:flex; gap:6px; background:#F0F0F5; border-radius:14px; padding:5px; margin:0 0 16px;}
+.lb-tabs button{flex:1; border:none; background:transparent; font:inherit; font-weight:800;
+  font-size:13px; color:var(--ink-soft); padding:9px 4px; border-radius:10px; cursor:pointer;
+  transition:background .18s, color .18s, box-shadow .18s;}
+.lb-tabs button.on{background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(0,0,0,.09);}
+.champ{position:relative; overflow:hidden; border-radius:22px; padding:18px 20px; margin-bottom:14px;
+  color:#fff; background:linear-gradient(135deg,#FFC93C,#FF9A3C); box-shadow:0 12px 26px rgba(255,154,60,.34);}
+.champ.week{background:linear-gradient(135deg,#8B5CF6,#6366F1); box-shadow:0 12px 26px rgba(99,102,241,.32);}
+.champ.season{background:linear-gradient(135deg,#FF5B4C,#FF7A5C); box-shadow:0 12px 26px rgba(255,91,76,.32);}
+.champ::after{content:""; position:absolute; top:0; left:-65%; width:45%; height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);
+  transform:skewX(-18deg); animation:champSheen 5s ease-in-out infinite; pointer-events:none;}
+@keyframes champSheen{0%,55%{left:-65%} 80%,100%{left:130%}}
+@media (prefers-reduced-motion: reduce){ .champ::after{animation:none; display:none;} }
+.champ .ctag{font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.09em; opacity:.95;}
+.champ .crow{display:flex; align-items:center; gap:13px; margin-top:9px;}
+.champ .cav{width:56px; height:56px; flex:none; border-radius:17px; display:grid; place-items:center;
+  font-size:30px; background:rgba(255,255,255,.22); border:2px solid rgba(255,255,255,.55);}
+.champ .cname{font-size:20px; font-weight:800; letter-spacing:-.01em; line-height:1.15;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.champ .cmeta{font-size:12.5px; opacity:.92; font-weight:600; margin-top:2px;}
+.champ .cscore{margin-left:auto; text-align:right; flex:none; padding-left:10px;}
+.champ .cscore b{font-size:29px; font-weight:800; display:block; line-height:1;}
+.champ .cscore span{font-size:10px; opacity:.9; font-weight:800; text-transform:uppercase; letter-spacing:.06em;}
+.lb-row.me{background:linear-gradient(90deg, rgba(255,91,76,.08), rgba(255,91,76,0)); border-radius:14px;}
 </style>
 <div id="auth" aria-live="polite">
   <div class="auth-card">
@@ -589,6 +616,11 @@ let STATE = { players:[], predictions:[] };
 let tab = "predict";
 let booted = false;
 
+/* Leaderboard windows + season baseline (set from app_config) */
+let SEASON_START = 0;      // ms; "All-Time" board counts results resolved since this
+let ADMIN_ID = null;       // only this user can reset the season
+let boardWindow = "all";   // "today" | "week" | "all"
+
 /* Transient UI state while a sheet is open */
 let draftCall = null;     // {predId, side, confidence}  (the caller is always ME)
 let resolveTarget = null; // predId being resolved
@@ -609,15 +641,20 @@ async function refresh(){
   if(refreshing){ refreshQueued = true; return; }
   refreshing = true;
   try{
-    const [profiles, preds, calls] = await Promise.all([
+    const [profiles, preds, calls, config] = await Promise.all([
       sb.from("profiles").select("id,name,color,emoji,created_at"),
       sb.from("predictions").select("id,text,resolve_by,status,outcome,resolved_at,created_at"),
-      sb.from("calls").select("prediction_id,player_id,side,confidence,updated_at")
+      sb.from("calls").select("prediction_id,player_id,side,confidence,updated_at"),
+      sb.from("app_config").select("season_start,admin_id").eq("id",1).maybeSingle()
     ]);
     if(profiles.error || preds.error || calls.error){
       console.warn("refresh error", profiles.error||preds.error||calls.error);
       toast("Hiccup syncing — retrying…");
       return;
+    }
+    if(config && config.data){
+      SEASON_START = config.data.season_start ? Date.parse(config.data.season_start) : 0;
+      ADMIN_ID = config.data.admin_id || null;
     }
     STATE.players = (profiles.data||[]).map(r => ({
       id:r.id, name:r.name, color:r.color, emoji:r.emoji,
@@ -651,17 +688,43 @@ async function refresh(){
 }
 
 /* Subscribe once: any insert/update/delete anywhere triggers a refetch,
-   so everyone's screen stays in sync within a moment. */
+   so everyone's screen stays in sync within a moment. On top of that we
+   actively re-sync whenever the app returns to the foreground or the network
+   comes back — phones drop the live connection while asleep, and missed
+   events aren't replayed, so a fresh pull on wake keeps everyone current. */
 function bindRealtime(){
   if(realtimeBound) return;
   realtimeBound = true;
+
   let t = null;
   const ping = () => { clearTimeout(t); t = setTimeout(refresh, 150); };
+
+  let everSubscribed = false;
   sb.channel("called-it-live")
     .on("postgres_changes", { event:"*", schema:"public", table:"profiles" },    ping)
     .on("postgres_changes", { event:"*", schema:"public", table:"predictions" }, ping)
     .on("postgres_changes", { event:"*", schema:"public", table:"calls" },       ping)
-    .subscribe();
+    .on("postgres_changes", { event:"*", schema:"public", table:"app_config" },  ping)
+    .subscribe((status) => {
+      // On a *re*subscribe (after a drop), catch up on anything missed while away.
+      if(status === "SUBSCRIBED"){
+        if(everSubscribed) refresh();
+        everSubscribed = true;
+      }
+    });
+
+  // Foreground / reconnect catch-up, lightly throttled so rapid toggles
+  // don't spam the server (real changes still come through the ping path above).
+  let lastSync = Date.now();
+  const catchUp = () => {
+    if(!booted || document.visibilityState !== "visible") return;
+    if(Date.now() - lastSync < 1500) return;
+    lastSync = Date.now();
+    refresh();
+  };
+  document.addEventListener("visibilitychange", catchUp);
+  window.addEventListener("focus", catchUp);
+  window.addEventListener("online", () => { if(booted){ lastSync = Date.now(); refresh(); } });
 }
 
 function me(){ return getPlayer(ME); }
@@ -685,8 +748,11 @@ function scoreCall(call, outcomeTrue){
   return Math.round((0.25 - brier) * 100);        // −75…+25
 }
 
-// Aggregate every resolved prediction into per-player stats + fun leaders.
-function computeStats(){
+// Aggregate resolved predictions into per-player stats + fun leaders.
+// sinceTs (ms): only count predictions resolved at/after this instant.
+// 0 = everything. Powers Today / This Week / All-Time from one code path.
+function computeStats(sinceTs){
+  sinceTs = sinceTs || 0;
   const m = {};
   STATE.players.forEach(p => m[p.id] = {
     id:p.id, score:0, calls:0, leans:0, correct:0, sumConf:0, pending:0
@@ -694,6 +760,7 @@ function computeStats(){
 
   STATE.predictions.forEach(pr => {
     if(pr.status === "resolved" && (pr.outcome === true || pr.outcome === false)){
+      if((pr.resolvedAt || 0) < sinceTs) return;   // outside the window
       pr.calls.forEach(call => {
         const s = m[call.playerId]; if(!s) return;
         s.score += scoreCall(call, pr.outcome);
@@ -817,35 +884,59 @@ function predictionCard(p){
 }
 
 /* ---------- LEADERBOARD ---------- */
+const BOARD_WINDOWS = [
+  { key:"today", label:"Today",     tag:"Today's Frontrunner", empty:"No calls have landed today — resolve one to grab the crown." },
+  { key:"week",  label:"This Week", tag:"This Week's Champion", empty:"Nothing resolved this week yet. First win takes the throne." },
+  { key:"all",   label:"All-Time",  tag:"The Reigning Oracle",  empty:"No scores on the board yet. Someone's about to make history." }
+];
+
 function renderBoard(){
   const el = document.getElementById("view-board");
-  const stats = computeStats();
+  const winCfg = BOARD_WINDOWS.find(w => w.key === boardWindow) || BOARD_WINDOWS[2];
+  const stats = computeStats(windowStart());
+  const isAdmin = !!ME && ME === ADMIN_ID;
 
   let html = `<div class="view-head"><h1>The Scoreboard</h1>
     <p>Most accurate and best-calibrated rises to the top.</p></div>`;
 
-  if(!stats.anyScored){
-    html += emptyState("🏆","No scores yet",
-      "Resolve a prediction and the points roll in. Someone's about to get crowned.",
+  // Window switch (Today / This Week / All-Time)
+  html += `<div class="lb-tabs">` + BOARD_WINDOWS.map(w =>
+    `<button class="${w.key===boardWindow?'on':''}" data-action="board-window" data-window="${w.key}">${w.label}</button>`
+  ).join("") + `</div>`;
+
+  const ranked = stats.list.filter(s => s.calls > 0);
+
+  if(ranked.length === 0){
+    html += emptyState("🏆","No crown claimed yet", winCfg.empty,
       STATE.predictions.some(p=>p.status==="pending")
         ? `<button class="btn coral" data-action="nav" data-tab="predict">Go resolve one</button>`
         : `<button class="btn coral" data-action="nav" data-tab="predict">Make a prediction</button>`);
+    if(isAdmin && boardWindow === "all") html += adminResetButton();
     el.innerHTML = html; return;
   }
 
-  // Fun callouts
-  if(stats.oracle){
-    const o = getPlayer(stats.oracle.id);
-    html += `<div class="callout active" style="background:linear-gradient(135deg,#FFC93C,#FF9A3C)">
-      <div class="emoji">${o.emoji}</div>
-      <div><div class="label">🏆 The Oracle</div>
-      <div class="who">${esc(o.name)}</div>
-      <div class="sub">Top of the board with ${signed(stats.oracle.score)} points</div></div>
+  // ----- Champion spotlight (the showpiece) -----
+  const champ = ranked[0];
+  const cp = getPlayer(champ.id);
+  const champClass = boardWindow==="today" ? "today" : boardWindow==="week" ? "week" : "season";
+  if(cp){
+    html += `<div class="champ ${champClass}">
+      <div class="ctag">👑 ${winCfg.tag}</div>
+      <div class="crow">
+        <div class="cav">${cp.emoji}</div>
+        <div style="min-width:0">
+          <div class="cname">${esc(cp.name)}${champ.id===ME?' <span style="opacity:.85;font-size:13px;font-weight:700">(you)</span>':''}</div>
+          <div class="cmeta">${champ.accuracy==null?'—':pct(champ.accuracy)} accurate · ${champ.calls} call${champ.calls===1?'':'s'}</div>
+        </div>
+        <div class="cscore"><b>${signed(champ.score)}</b><span>points</span></div>
+      </div>
     </div>`;
   }
-  if(stats.house){
+
+  // A little extra flavour on the All-Time board
+  if(boardWindow === "all" && stats.house){
     const h = getPlayer(stats.house.id);
-    html += `<div class="callout house">
+    if(h) html += `<div class="callout house">
       <div class="emoji">🏠</div>
       <div><div class="label">Most likely to bet the house</div>
       <div class="who">${esc(h.name)}</div>
@@ -853,48 +944,83 @@ function renderBoard(){
     </div>`;
   }
 
-  html += `<div style="height:6px"></div>`;
+  html += `<div style="height:4px"></div>`;
 
-  // Ranked rows (only players who have made calls show a real score)
-  const ranked = stats.list.filter(s => s.calls > 0);
-  const idle   = stats.list.filter(s => s.calls === 0);
-
+  // ----- The rest of the field -----
   ranked.forEach((s, i) => {
-    const p = getPlayer(s.id);
+    const p = getPlayer(s.id); if(!p) return;
     const cls = s.score>0 ? "pos" : s.score<0 ? "neg" : "neu";
     const medal = ["🥇","🥈","🥉"][i] || (i+1);
-    const title = (i===0) ? `<span class="title">The Oracle</span>` : "";
     const acc = s.accuracy==null ? "—" : pct(s.accuracy);
-    html += `<div class="lb-row ${i===0?'first':''}">
+    html += `<div class="lb-row ${i===0?'first':''}${s.id===ME?' me':''}">
       <div class="lb-rank">${medal}</div>
       <div class="avatar" style="background:${p.color}">${p.emoji}</div>
       <div class="lb-main">
-        <div class="lb-name">${esc(p.name)} ${title}</div>
+        <div class="lb-name">${esc(p.name)}${s.id===ME?' <span class="title">you</span>':''}</div>
         <div class="lb-stats">${acc} accurate · ${s.calls} call${s.calls===1?"":"s"}${s.leans?` · avg ${Math.round(s.avgConf)}% sure`:""}</div>
       </div>
       <div class="lb-score ${cls}" data-count="${s.score}">0</div>
     </div>`;
   });
 
-  if(idle.length){
-    html += `<div class="tiny muted center" style="margin:14px 0 8px">Haven't called anything yet</div>`;
-    idle.forEach(s => {
-      const p = getPlayer(s.id);
-      html += `<div class="lb-row" style="opacity:.7">
-        <div class="lb-rank">·</div>
-        <div class="avatar" style="background:${p.color}">${p.emoji}</div>
-        <div class="lb-main"><div class="lb-name">${esc(p.name)}</div>
-        <div class="lb-stats">Waiting on the sidelines</div></div>
-        <div class="lb-score neu">—</div>
-      </div>`;
-    });
+  // Idle players only clutter the timed boards — show them on All-Time only.
+  if(boardWindow === "all"){
+    const idle = stats.list.filter(s => s.calls === 0);
+    if(idle.length){
+      html += `<div class="tiny muted center" style="margin:14px 0 8px">Haven't called anything yet</div>`;
+      idle.forEach(s => {
+        const p = getPlayer(s.id); if(!p) return;
+        html += `<div class="lb-row" style="opacity:.7">
+          <div class="lb-rank">·</div>
+          <div class="avatar" style="background:${p.color}">${p.emoji}</div>
+          <div class="lb-main"><div class="lb-name">${esc(p.name)}</div>
+          <div class="lb-stats">Waiting on the sidelines</div></div>
+          <div class="lb-score neu">—</div>
+        </div>`;
+      });
+    }
   }
+
+  if(isAdmin && boardWindow === "all") html += adminResetButton();
 
   el.innerHTML = html;
   // Satisfying count-up on the scores
   el.querySelectorAll("[data-count]").forEach(node => {
     countUp(node, parseInt(node.dataset.count,10));
   });
+}
+
+function adminResetButton(){
+  return `<div style="margin-top:24px; text-align:center">
+    <button class="btn ghost sm" data-action="reset-board">♻️ Reset the All-Time board</button>
+    <div class="tiny faint" style="margin-top:6px">Admin only · starts a fresh season (nothing is deleted)</div>
+  </div>`;
+}
+
+function sheetResetBoard(){
+  openSheet(`
+    <div class="sheet-title">Start a new season? 🏁</div>
+    <div class="sheet-sub">The <b>All-Time</b> board resets to zero for everyone. Today and This Week aren't touched, and nothing is deleted — every past result still lives in the Feed.</div>
+    <div class="row" style="gap:10px; margin-top:8px">
+      <button class="btn ghost" data-action="close-sheet">Keep it going</button>
+      <button class="btn danger" data-action="confirm-reset-board">Reset season</button>
+    </div>
+  `);
+}
+async function doResetBoard(){
+  const btn = document.querySelector('[data-action="confirm-reset-board"]');
+  if(btn){ btn.disabled = true; btn.textContent = "Resetting…"; }
+  const { error } = await sb.rpc("reset_leaderboard");
+  if(error){
+    toast(/admin/i.test(error.message) ? "Only the admin can reset the board." : "Couldn't reset — try again.");
+    if(btn){ btn.disabled=false; btn.textContent="Reset season"; }
+    return;
+  }
+  await refresh();
+  closeSheet();
+  boardWindow = "all"; tab = "board"; render();
+  toast("New season! All-Time board wiped clean 🧼");
+  bigConfetti();
 }
 
 /* ---------- HISTORY ---------- */
@@ -1010,6 +1136,18 @@ function isPast(ds){
 function fmtDate(ds){
   const d = new Date(ds + "T12:00:00");
   return d.toLocaleDateString(undefined, {month:"short", day:"numeric"});
+}
+function startOfToday(){ const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); }
+function startOfWeek(){
+  const d = new Date(); d.setHours(0,0,0,0);
+  const mondayOffset = (d.getDay() + 6) % 7;   // Mon=0 … Sun=6
+  d.setDate(d.getDate() - mondayOffset);
+  return d.getTime();
+}
+function windowStart(){
+  return boardWindow === "today" ? startOfToday()
+       : boardWindow === "week"  ? startOfWeek()
+       : SEASON_START;
 }
 
 /* =========================================================================
@@ -1462,6 +1600,12 @@ document.addEventListener("click", (e) => {
     /* Resolve */
     case "open-resolve": sheetResolve(target.dataset.pred); break;
     case "do-resolve": doResolve(target.dataset.out === "true"); break;
+
+    /* Leaderboard windows + admin reset */
+    case "board-window":
+      boardWindow = target.dataset.window; renderBoard(); break;
+    case "reset-board": sheetResetBoard(); break;
+    case "confirm-reset-board": doResetBoard(); break;
 
     /* Profile + settings actions */
     case "edit-profile": sheetEditProfile(); break;
