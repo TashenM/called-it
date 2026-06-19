@@ -73,13 +73,36 @@
 
   /* session view */
   .back{display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);font-weight:800;font-size:14px;padding:4px 0 10px}
-  .rally{border-radius:var(--radius);padding:20px;color:#fff;box-shadow:var(--shadow-lg);position:relative;overflow:hidden;margin-bottom:14px}
-  .rally .lbl{font-size:12px;font-weight:800;opacity:.9;letter-spacing:.4px;text-transform:uppercase}
-  .rally .word{font-size:30px;font-weight:900;letter-spacing:-.5px;margin:4px 0 2px;word-break:break-word}
-  .rally .rk{font-size:14px;font-weight:700;opacity:.95}
-  .rally.empty{background:linear-gradient(135deg,#cdbfb4,#a89a90)}
-  .rally .glow{position:absolute;inset:-40% -10% auto auto;width:200px;height:200px;border-radius:50%;
-    background:rgba(255,255,255,.25);filter:blur(30px)}
+  .rally{position:relative;border-radius:var(--radius);padding:20px;color:#fff;box-shadow:var(--shadow-lg);
+    overflow:hidden;margin-bottom:14px}
+  .rally.empty{background:radial-gradient(120% 135% at 82% -12%,#3c4d68 0%,#2b2333 42%,#1d1824 100%)}
+  .rally .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;position:relative;z-index:2}
+  .rally .pill{font-size:11.5px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;
+    background:rgba(255,255,255,.18);padding:5px 12px;border-radius:999px}
+  .rally .rankpill{font-size:14px;font-weight:900;background:rgba(0,0,0,.30);padding:5px 13px;border-radius:999px;
+    font-variant-numeric:tabular-nums}
+  .rally .word{position:relative;z-index:2;font-size:34px;font-weight:900;letter-spacing:-.6px;line-height:1.05;
+    word-break:break-word;text-shadow:0 2px 18px rgba(0,0,0,.30)}
+  .rally .sub{position:relative;z-index:2;font-size:13.5px;font-weight:800;opacity:.95;margin-top:7px}
+  .rally .heatmeter{position:relative;z-index:2;height:8px;border-radius:5px;background:rgba(255,255,255,.18);
+    margin-top:15px;overflow:hidden}
+  .rally .heatmeter>i{display:block;height:100%;border-radius:5px;
+    background:linear-gradient(90deg,rgba(255,255,255,.5),#fff);box-shadow:0 0 14px rgba(255,255,255,.6);
+    transition:width .55s cubic-bezier(.3,.7,.4,1)}
+  .rally .target{position:absolute;right:-46px;top:-46px;width:188px;height:188px;z-index:1;opacity:.6;
+    background:radial-gradient(circle,
+      transparent 0 7%, rgba(255,255,255,.17) 7% 11%,
+      transparent 11% 19%, rgba(255,255,255,.13) 19% 23%,
+      transparent 23% 32%, rgba(255,255,255,.10) 32% 36%,
+      transparent 36% 46%, rgba(255,255,255,.07) 46% 50%, transparent 50%)}
+
+  .lastguess{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:11px 14px;margin-bottom:14px;box-shadow:var(--shadow-sm);font-size:15px}
+  .lastguess .lg-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-faint)}
+  .lastguess .heatdot{width:13px;height:13px;border-radius:50%;flex:none}
+  .lastguess .lg-word{font-weight:900}
+  .lastguess .lg-rank{font-weight:900;font-variant-numeric:tabular-nums}
+  .lastguess .lg-by{margin-left:auto;font-size:12px;color:var(--ink-faint);font-weight:700}
 
   .turnbar{display:flex;align-items:center;gap:10px;border-radius:16px;padding:13px 15px;margin-bottom:14px;font-weight:800;
     border:1.5px solid var(--line);background:var(--card)}
@@ -333,18 +356,33 @@ function renderSession(s){
     if(next) html+=`<button class="btn" id="next-pz" style="margin-bottom:16px">Next puzzle →</button>`;
     else html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep);margin-bottom:16px">🎉 That’s all 5 for today — fresh puzzles at midnight!</div>`;
   }else{
-    // rally banner
+    // ----- closest-so-far rally banner -----
     if(s.best_rank){
-      html+=`<div class="rally" style="background:linear-gradient(135deg,${col},${mix(col,'#000',0.18)})">
-        <div class="glow"></div>
-        <div class="lbl">${heatLabel(h)} · closest so far</div>
+      const deep=mix(col,'#17101a',0.80), midc=mix(col,'#241019',0.42), glowC=mix(col,'#ffffff',0.30);
+      html+=`<div class="rally" style="background:radial-gradient(120% 135% at 82% -12%, ${glowC} 0%, ${midc} 34%, ${deep} 100%)">
+        <div class="target"></div>
+        <div class="top"><span class="pill">🎯 Closest so far</span><span class="rankpill">#${s.best_rank}</span></div>
         <div class="word">${s.best_word}</div>
-        <div class="rk">rank #${s.best_rank}</div></div>`;
+        <div class="sub">${heatLabel(h)}</div>
+        <div class="heatmeter"><i style="width:${Math.max(4,Math.round(h*100))}%"></i></div>
+      </div>`;
     }else{
-      html+=`<div class="rally empty"><div class="glow"></div>
-        <div class="lbl">No guesses yet</div>
+      html+=`<div class="rally empty">
+        <div class="target"></div>
+        <div class="top"><span class="pill">🎯 New puzzle</span></div>
         <div class="word">Puzzle ${s.slot}</div>
-        <div class="rk">Land the first guess to set the pace</div></div>`;
+        <div class="sub">Land the first guess to set the pace</div>
+      </div>`;
+    }
+    // ----- last guess strip -----
+    const last = openGuesses.length ? openGuesses.reduce((a,b)=> new Date(b.created_at)>new Date(a.created_at)?b:a) : null;
+    if(last){
+      const lc=heatColor(heatOf(last.rank));
+      html+=`<div class="lastguess"><span class="lg-label">Last</span>
+        <span class="heatdot" style="background:${lc}"></span>
+        <span class="lg-word">${last.word}</span>
+        <span class="lg-rank" style="color:${lc}">#${last.rank}</span>
+        <span class="lg-by">${pname(last.player_id)}</span></div>`;
     }
     // turn bar
     const rem=turnRemaining(s);
@@ -392,7 +430,7 @@ function renderSession(s){
 }
 function turnRemaining(s){
   if(s.status!=='open')return 0;
-  return Math.max(0,900-Math.floor((Date.now()-new Date(s.turn_started_at).getTime())/1000));
+  return Math.max(0,240-Math.floor((Date.now()-new Date(s.turn_started_at).getTime())/1000));
 }
 function fmt(sec){const m=Math.floor(sec/60),x=sec%60;return m+':'+String(x).padStart(2,'0');}
 
