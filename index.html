@@ -527,6 +527,26 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 .champ .cscore b{font-size:29px; font-weight:800; display:block; line-height:1;}
 .champ .cscore span{font-size:10px; opacity:.9; font-weight:800; text-transform:uppercase; letter-spacing:.06em;}
 .lb-row.me{background:linear-gradient(90deg, rgba(255,91,76,.08), rgba(255,91,76,0)); border-radius:14px;}
+
+/* ===== Daily Call (pinned, distinct from custom calls) ===== */
+.daily-call{position:relative; overflow:hidden; border-radius:22px; padding:18px 18px 16px; margin:0 0 16px;
+  color:#fff; background:linear-gradient(135deg,#1b2a4a 0%, #28407a 55%, #3358a6 100%);
+  box-shadow:0 14px 30px rgba(27,42,74,.36);}
+.daily-call::before{content:""; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(130px 90px at 88% -12%, rgba(255,201,60,.5), transparent 70%);}
+.dc-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; position:relative;}
+.dc-badge{font-size:11px; font-weight:900; letter-spacing:.12em; color:#3a2a00;
+  background:linear-gradient(135deg,#FFC93C,#FF9A3C); padding:4px 9px; border-radius:999px;}
+.dc-count{font-size:12px; font-weight:800; opacity:.95;}
+.dc-locked{font-size:12px; font-weight:800; opacity:.85;}
+.dc-q{font-size:19px; font-weight:800; line-height:1.28; letter-spacing:-.01em; margin:11px 0 8px; position:relative;}
+.dc-meta{font-size:12.5px; font-weight:700; opacity:.85; position:relative;}
+.dc-note{font-size:13px; font-weight:700; opacity:.9; margin-top:14px; text-align:center;}
+.dc-btn{margin-top:14px; width:100%; background:#fff; color:#1b2a4a; font-weight:800; border:none; position:relative;}
+.dc-btn:active{transform:scale(.985);}
+.daily-call .consensus > span{color:#fff;}
+.daily-call .cbar{background:rgba(255,255,255,.25);}
+.daily-call .cbar > span{background:#FFC93C;}
 </style>
 <div id="auth" aria-live="polite">
   <div class="auth-card">
@@ -643,7 +663,7 @@ async function refresh(){
   try{
     const [profiles, preds, calls, config] = await Promise.all([
       sb.from("profiles").select("id,name,color,emoji,created_at"),
-      sb.from("predictions").select("id,text,resolve_by,status,outcome,resolved_at,created_at"),
+      sb.from("predictions").select("id,text,resolve_by,status,outcome,resolved_at,created_at,source,category,lock_at,resolve_at,daily_date"),
       sb.from("calls").select("prediction_id,player_id,side,confidence,updated_at"),
       sb.from("app_config").select("season_start,admin_id").eq("id",1).maybeSingle()
     ]);
@@ -667,6 +687,11 @@ async function refresh(){
         status:r.status, outcome:r.outcome,
         resolvedAt: r.resolved_at ? Date.parse(r.resolved_at) : null,
         createdAt: r.created_at ? Date.parse(r.created_at) : 0,
+        source: r.source || "manual",
+        category: r.category || null,
+        lockAt: r.lock_at ? Date.parse(r.lock_at) : null,
+        resolveAt: r.resolve_at ? Date.parse(r.resolve_at) : null,
+        dailyDate: r.daily_date || null,
         calls:[]
       };
       byPred[p.id] = p; return p;
@@ -815,9 +840,13 @@ function render(){
 }
 
 /* ---------- PREDICT (active game) ---------- */
+function isLocked(p){ return p.lockAt != null && Date.now() >= p.lockAt; }
+
 function renderPredict(){
   const el = document.getElementById("view-predict");
-  const pending = STATE.predictions.filter(p => p.status === "pending")
+  const pendingAll = STATE.predictions.filter(p => p.status === "pending");
+  const daily = pendingAll.find(p => p.source === "daily");
+  const pending = pendingAll.filter(p => p.source !== "daily")
                     .sort((a,b) => b.createdAt - a.createdAt);
 
   let html = `<div class="view-head"><h1>What's going to happen?</h1>
@@ -830,15 +859,64 @@ function renderPredict(){
     el.innerHTML = html; return;
   }
 
-  html += `<button class="btn coral" style="margin-bottom:16px" data-action="new-pred">＋ New prediction</button>`;
+  // ⭐ Daily Call — pinned at the very top
+  if(daily) html += dailyCallCard(daily);
 
-  if(pending.length === 0){
+  html += `<button class="btn coral" style="margin:${daily?'4px':'0'} 0 16px" data-action="new-pred">＋ New prediction</button>`;
+
+  if(pending.length === 0 && !daily){
     html += emptyState("🔮","No open predictions",
       "Call something — the weather, the game, your friend's love life. Anything goes.");
+  } else if(pending.length === 0 && daily){
+    html += `<div class="tiny muted center" style="margin:6px 0">No other open predictions — start one above. ✨</div>`;
   } else {
     pending.forEach(p => html += predictionCard(p));
   }
   el.innerHTML = html;
+}
+
+/* The special, pinned daily-call card */
+function dailyCallCard(p){
+  const total = STATE.players.length;
+  const called = p.calls.length;
+  const locked = isLocked(p);
+  const mineCall = p.calls.find(c => c.playerId === ME);
+
+  // Status strip: countdown → locked → (resolved/void handled in the Feed)
+  let strip;
+  if(!locked){
+    strip = `<span class="dc-count">🔒 Locks ${lockCountdown(p.lockAt)}</span>`;
+  } else {
+    strip = `<span class="dc-locked">🔒 Locked · awaiting result</span>`;
+  }
+
+  // Consensus bar
+  let consensusHtml = "";
+  if(called){
+    const avg = p.calls.reduce((s,c)=> s + (c.side==="yes"?c.confidence/100:1-c.confidence/100),0)/called;
+    consensusHtml = `<div class="consensus" style="margin-top:10px">
+      <span>Crowd</span><div class="cbar"><span style="width:${Math.round(avg*100)}%"></span></div>
+      <span class="bold" style="color:#fff">${Math.round(avg*100)}% yes</span>
+    </div>`;
+  }
+
+  let action;
+  if(locked){
+    action = `<div class="dc-note">Calls are in — sit tight for the result.</div>`;
+  } else if(mineCall){
+    action = `<button class="btn dc-btn" data-action="open-call" data-pred="${p.id}">
+      ✅ You called ${mineCall.side==="yes"?"YES":"NO"} (${mineCall.confidence}%) · tap to change</button>`;
+  } else {
+    action = `<button class="btn dc-btn" data-action="open-call" data-pred="${p.id}">📣 Make your call</button>`;
+  }
+
+  return `<div class="daily-call">
+    <div class="dc-head"><span class="dc-badge">⭐ DAILY CALL</span>${strip}</div>
+    <div class="dc-q">${esc(p.text)}</div>
+    <div class="dc-meta">🟢 ${called}/${total} called${p.category?` · ${esc(p.category)}`:""}</div>
+    ${consensusHtml}
+    ${action}
+  </div>`;
 }
 
 function predictionCard(p){
@@ -1026,7 +1104,7 @@ async function doResetBoard(){
 /* ---------- HISTORY ---------- */
 function renderHistory(){
   const el = document.getElementById("view-history");
-  const resolved = STATE.predictions.filter(p => p.status === "resolved")
+  const resolved = STATE.predictions.filter(p => p.status === "resolved" || p.status === "void")
                      .sort((a,b) => (b.resolvedAt||0) - (a.resolvedAt||0));
   const pending = STATE.predictions.filter(p => p.status === "pending")
                      .sort((a,b) => b.createdAt - a.createdAt);
@@ -1050,6 +1128,15 @@ function renderHistory(){
 }
 
 function resolvedCard(p){
+  if(p.status === "void"){
+    return `<div class="card" style="opacity:.78">
+      <div class="row spread" style="align-items:flex-start; margin-bottom:6px">
+        <div class="statement" style="flex:1; margin:0">${p.source==="daily"?'⭐ ':''}${esc(p.text)}</div>
+        <span class="stamp" style="background:#E6E6EC; color:var(--ink-soft)">NO CONTEST</span>
+      </div>
+      <div class="tiny muted">Voided — no points awarded.</div>
+    </div>`;
+  }
   const outcome = p.outcome === true;
   const lines = p.calls
     .map(c => ({ c, pts: scoreCall(c, p.outcome) }))
@@ -1149,6 +1236,17 @@ function windowStart(){
        : boardWindow === "week"  ? startOfWeek()
        : SEASON_START;
 }
+// Human countdown to a lock instant, e.g. "in 2h 14m" / "in 9m"
+function lockCountdown(ms){
+  if(ms == null) return "soon";
+  let diff = Math.max(0, ms - Date.now());
+  const h = Math.floor(diff/3600000); diff -= h*3600000;
+  const m = Math.floor(diff/60000);
+  if(h >= 24){ const d=Math.floor(h/24); return `in ${d}d ${h%24}h`; }
+  if(h > 0)  return `in ${h}h ${m}m`;
+  if(m > 0)  return `in ${m}m`;
+  return "any moment";
+}
 
 /* =========================================================================
    Sheets (bottom modal)
@@ -1247,6 +1345,7 @@ async function savePrediction(){
 function sheetCall(predId){
   const pred = STATE.predictions.find(p=>p.id===predId);
   if(!pred || pred.status !== "pending") return;
+  if(isLocked(pred)){ toast("Calls for this one have locked. 🔒"); return; }
   const existing = pred.calls.find(c=>c.playerId===ME);
   draftCall = {
     predId,
@@ -1683,8 +1782,21 @@ async function startApp(session){
   }
   booted = true;
   bindRealtime();
+  startDailyTick();
   tab = "predict";
   render();
+}
+
+// Keep the daily-call countdown fresh; re-render Predict each minute while a
+// pending daily call is counting down, and once on the exact lock instant.
+let dailyTick = null, dailyLockTimer = null;
+function startDailyTick(){
+  if(dailyTick) return;
+  dailyTick = setInterval(() => {
+    if(!booted || tab !== "predict") return;
+    const d = STATE.predictions.find(p => p.source === "daily" && p.status === "pending");
+    if(d) renderPredict();
+  }, 60000);
 }
 
 function stopApp(){
