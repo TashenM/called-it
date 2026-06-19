@@ -116,6 +116,9 @@
     background:linear-gradient(135deg,var(--mint),var(--mint-deep));box-shadow:var(--shadow-lg)}
   .solved-card .big{font-size:34px;font-weight:900;letter-spacing:-.5px;margin:6px 0}
   .solved-card .meta{font-weight:700;opacity:.95;font-size:14px}
+  .solved-card.reveal{background:linear-gradient(135deg,#8B7CE0,#6b54d3)}
+  .locked-note{text-align:center;background:#f6efe6;color:var(--ink-soft);font-weight:800;font-size:13.5px;
+    padding:14px;border-radius:16px;border:1px dashed #e2d4c4;margin-top:4px}
 
   /* toast */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;
@@ -249,22 +252,29 @@ async function loadToday(){
 /* ---------- today list ---------- */
 function renderToday(){
   const list=$('#puzzle-list');
-  if(!todaySessions.length){list.innerHTML='<div class="loading">No puzzles yet today — check back soon!</div>';return;}
-  const solved=todaySessions.filter(s=>s.status==='solved').length;
-  $('#today-sub').textContent=`Today’s 5 puzzles · ${solved}/${todaySessions.length} solved`;
-  list.innerHTML=todaySessions.map(s=>{
+  if(!todaySessions.length){list.innerHTML='<div class="loading">No puzzles yet today — they unlock at midnight. Check back soon!</div>';return;}
+  const done=todaySessions.filter(s=>s.status==='solved'||s.status==='revealed').length;
+  const current=todaySessions.find(s=>s.status==='open');
+  const locked=todaySessions.filter(s=>s.status==='locked').length;
+  $('#today-sub').textContent=`Puzzle ${current?current.slot:todaySessions.length} of ${todaySessions.length} · ${done} solved`;
+
+  // sequential: show only finished puzzles + the one current open puzzle
+  const shown=todaySessions.filter(s=>s.status!=='locked').sort((a,b)=>a.slot-b.slot);
+  let html=shown.map(s=>{
     const h=heatOf(s.best_rank);const col=heatColor(h);
-    let badge,meta;
+    let badge,meta,numColor;
     if(s.status==='solved'){badge=`<span class="badge solved">✓ Solved</span>`;
-      meta=`Cracked in ${s.guess_count} · ${pname(s.solved_by)}`;}
+      meta=`Cracked in ${s.guess_count} · ${pname(s.solved_by)}`;numColor='var(--mint)';}
+    else if(s.status==='revealed'){badge=`<span class="badge wait" style="background:#f1edff;color:#6b54d3">Revealed</span>`;
+      meta=`Nobody got it in 50 — it was “${s.revealed_word}”`;numColor='#9a8f8a';}
     else if(s.current_player_id===me.id){badge=`<span class="badge you">🎯 Your turn</span>`;
-      meta=s.guess_count?`${s.guess_count} guesses so far`:'Be the first to guess';}
+      meta=s.guess_count?`${s.guess_count} guesses so far`:'Be the first to guess';numColor='var(--blue)';}
     else{badge=`<span class="badge wait">⏳ ${pname(s.current_player_id)}</span>`;
-      meta=s.guess_count?`${s.guess_count} guesses so far`:'Waiting to start';}
+      meta=s.guess_count?`${s.guess_count} guesses so far`:'Waiting to start';numColor='var(--blue)';}
     const rankHTML=s.best_rank?`<div class="pz-rank" style="color:${col}">#${s.best_rank}<small>closest</small></div>`
       :`<div class="pz-rank" style="color:var(--ink-faint)">—<small>no guesses</small></div>`;
     return `<div class="puzzle" onclick="openSession('${s.id}')">
-      <div class="pz-num" style="background:${s.status==='solved'?'var(--mint)':'var(--blue)'}">${s.slot}</div>
+      <div class="pz-num" style="background:${numColor}">${s.slot}</div>
       <div class="pz-body">
         <div class="pz-title">Puzzle ${s.slot} ${badge}</div>
         <div class="pz-meta">${meta}</div>
@@ -273,6 +283,13 @@ function renderToday(){
       <div class="pz-right">${rankHTML}</div>
     </div>`;
   }).join('');
+
+  if(locked>0){
+    html+=`<div class="locked-note">🔒 ${locked} more puzzle${locked>1?'s':''} unlock as you solve — one at a time</div>`;
+  }else if(!current){
+    html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep)">🎉 All ${todaySessions.length} done — new puzzles at midnight!</div>`;
+  }
+  list.innerHTML=html;
 }
 
 /* ---------- session view ---------- */
@@ -296,13 +313,25 @@ function renderSession(s){
   const h=heatOf(s.best_rank);const col=heatColor(h);
   let html='';
 
-  if(s.status==='solved'){
-    const word=(openGuesses.find(g=>g.rank===1)||{}).word||'';
-    html+=`<div class="solved-card">
-      <div style="font-size:13px;font-weight:800;opacity:.9;text-transform:uppercase;letter-spacing:.5px">Bullseye!</div>
-      <div class="big">${word.toUpperCase()}</div>
-      <div class="meta">Solved in ${s.guess_count} guesses · finished by ${pname(s.solved_by)}</div>
-    </div>`;
+  const ended = s.status==='solved' || s.status==='revealed';
+  if(ended){
+    if(s.status==='solved'){
+      const word=(openGuesses.find(g=>g.rank===1)||{}).word||s.best_word||'';
+      html+=`<div class="solved-card">
+        <div style="font-size:13px;font-weight:800;opacity:.9;text-transform:uppercase;letter-spacing:.5px">Bullseye!</div>
+        <div class="big">${word.toUpperCase()}</div>
+        <div class="meta">Solved in ${s.guess_count} guesses · finished by ${pname(s.solved_by)}</div>
+      </div>`;
+    }else{
+      html+=`<div class="solved-card reveal">
+        <div style="font-size:13px;font-weight:800;opacity:.9;text-transform:uppercase;letter-spacing:.5px">Out of guesses</div>
+        <div class="big">${(s.revealed_word||'').toUpperCase()}</div>
+        <div class="meta">Nobody cracked it in 50 — that was the word. Onto the next!</div>
+      </div>`;
+    }
+    const next=todaySessions.find(x=>x.status==='open');
+    if(next) html+=`<button class="btn" id="next-pz" style="margin-bottom:16px">Next puzzle →</button>`;
+    else html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep);margin-bottom:16px">🎉 That’s all 5 for today — fresh puzzles at midnight!</div>`;
   }else{
     // rally banner
     if(s.best_rank){
@@ -350,6 +379,9 @@ function renderSession(s){
   }
   $('#session-body').innerHTML=html;
 
+  const nextBtn=$('#next-pz');
+  if(nextBtn){const nx=todaySessions.find(x=>x.status==='open'); if(nx)nextBtn.onclick=()=>openSession(nx.id);}
+
   if(s.status==='open'&&mine){
     const inp=$('#guess-input'),btn=$('#guess-btn');
     btn.onclick=()=>doGuess(s.id);
@@ -376,6 +408,7 @@ async function doGuess(id){
   }
   inp.value='';
   if(data.solved){burst();toast('🎯 BULLSEYE!','turn');}
+  else if(data.revealed){toast('Out of guesses — the word is revealed');}
   await loadGuesses();await loadToday();
 }
 async function doPass(id){
