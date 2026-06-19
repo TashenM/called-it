@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#FFF8F0">
+<title>Bullseye</title>
+<style>
+  :root{
+    --coral:#FF5B4C; --coral-deep:#E23B2C; --blue:#2D7DFF; --yellow:#FFC93C;
+    --mint:#22CFA0; --mint-deep:#12A37C;
+    --ink:#241c1a; --ink-soft:#5b504c; --ink-faint:#9a8f8a;
+    --bg:#FFF8F0; --card:#ffffff; --line:#f0e6db;
+    --radius:22px; --shadow-lg:0 18px 40px -16px rgba(80,40,20,.28);
+    --shadow-sm:0 6px 18px -8px rgba(80,40,20,.25);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    overscroll-behavior-y:none}
+  body{max-width:520px;margin:0 auto;padding:0 16px 40px;min-height:100vh}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  .hidden{display:none!important}
+
+  /* top bar */
+  .top{display:flex;align-items:center;gap:10px;padding:16px 2px 10px;position:sticky;top:0;
+    background:linear-gradient(var(--bg) 78%,transparent);z-index:20}
+  .logo{font-weight:900;font-size:24px;letter-spacing:-.5px;display:flex;align-items:center;gap:7px}
+  .logo .dot{width:22px;height:22px;border-radius:50%;background:
+    radial-gradient(circle at 50% 50%,var(--coral) 0 30%,#fff 30% 45%,var(--coral) 45% 60%,#fff 60% 73%,var(--coral) 73% 100%)}
+  .spacer{flex:1}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+    border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px;color:var(--ink-soft);box-shadow:var(--shadow-sm)}
+  .ava{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;color:#fff;flex:none}
+  .switch{background:var(--ink);color:#fff;border-radius:999px;padding:8px 13px;font-weight:800;font-size:13px;
+    display:inline-flex;align-items:center;gap:6px;box-shadow:var(--shadow-sm)}
+
+  /* auth */
+  .auth-wrap{min-height:80vh;display:flex;flex-direction:column;justify-content:center;gap:18px;text-align:center;padding:0 6px}
+  .auth-wrap h1{font-size:30px;margin:0;letter-spacing:-1px}
+  .auth-wrap p{color:var(--ink-soft);margin:0 0 6px;line-height:1.5}
+  .field{width:100%;padding:16px;border-radius:16px;border:2px solid var(--line);background:#fff;
+    font-size:17px;text-align:center;font-weight:600;outline:none;transition:border-color .15s}
+  .field:focus{border-color:var(--blue)}
+  .btn{width:100%;padding:16px;border-radius:16px;background:var(--coral);color:#fff;font-weight:800;font-size:17px;
+    box-shadow:0 10px 22px -10px var(--coral);transition:transform .1s,opacity .15s}
+  .btn:active{transform:scale(.97)} .btn[disabled]{opacity:.5}
+  .btn.ghost{background:var(--card);color:var(--ink-soft);border:1px solid var(--line);box-shadow:none}
+  .hint{font-size:13px;color:var(--ink-faint)}
+
+  /* intro / sub */
+  .sub{color:var(--ink-soft);font-size:14px;margin:2px 2px 14px;font-weight:600}
+
+  /* puzzle list cards */
+  .puzzle{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);
+    border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);
+    transition:transform .12s;position:relative;overflow:hidden}
+  .puzzle:active{transform:scale(.985)}
+  .pz-num{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-weight:900;font-size:19px;
+    color:#fff;flex:none;background:var(--blue)}
+  .pz-body{flex:1;min-width:0}
+  .pz-title{font-weight:800;font-size:16px}
+  .pz-meta{font-size:13px;color:var(--ink-soft);margin-top:3px;font-weight:600}
+  .pz-right{text-align:right;flex:none}
+  .pz-rank{font-weight:900;font-size:17px}
+  .pz-rank small{font-weight:700;color:var(--ink-faint);font-size:11px;display:block}
+  .badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;display:inline-block}
+  .badge.you{background:#fff0ee;color:var(--coral-deep)}
+  .badge.wait{background:#eef4ff;color:var(--blue)}
+  .badge.solved{background:#e6faf3;color:var(--mint-deep)}
+  .heatbar{height:5px;border-radius:3px;background:var(--line);margin-top:9px;overflow:hidden}
+  .heatbar>i{display:block;height:100%;border-radius:3px}
+
+  /* session view */
+  .back{display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);font-weight:800;font-size:14px;padding:4px 0 10px}
+  .rally{border-radius:var(--radius);padding:20px;color:#fff;box-shadow:var(--shadow-lg);position:relative;overflow:hidden;margin-bottom:14px}
+  .rally .lbl{font-size:12px;font-weight:800;opacity:.9;letter-spacing:.4px;text-transform:uppercase}
+  .rally .word{font-size:30px;font-weight:900;letter-spacing:-.5px;margin:4px 0 2px;word-break:break-word}
+  .rally .rk{font-size:14px;font-weight:700;opacity:.95}
+  .rally.empty{background:linear-gradient(135deg,#cdbfb4,#a89a90)}
+  .rally .glow{position:absolute;inset:-40% -10% auto auto;width:200px;height:200px;border-radius:50%;
+    background:rgba(255,255,255,.25);filter:blur(30px)}
+
+  .turnbar{display:flex;align-items:center;gap:10px;border-radius:16px;padding:13px 15px;margin-bottom:14px;font-weight:800;
+    border:1.5px solid var(--line);background:var(--card)}
+  .turnbar.me{border-color:var(--coral);background:#fff5f3}
+  .turnbar .t-emoji{font-size:20px}
+  .turnbar .t-text{flex:1;font-size:14px;line-height:1.25}
+  .turnbar .t-text small{display:block;font-weight:700;color:var(--ink-faint);font-size:12px}
+  .timer{font-variant-numeric:tabular-nums;font-weight:900;font-size:18px;padding:5px 10px;border-radius:10px;
+    background:var(--bg);color:var(--ink)}
+  .timer.low{color:var(--coral-deep);background:#fff0ee}
+
+  .guessrow{display:flex;gap:8px;margin-bottom:16px}
+  .guessrow input{flex:1;padding:15px;border-radius:14px;border:2px solid var(--line);font-size:16px;font-weight:600;outline:none}
+  .guessrow input:focus{border-color:var(--coral)}
+  .guessrow input:disabled{background:#faf5ef;color:var(--ink-faint)}
+  .gbtn{padding:0 20px;border-radius:14px;background:var(--coral);color:#fff;font-weight:800;font-size:16px}
+  .gbtn:disabled{background:#e7ddd3;color:#fff}
+  .passlink{display:block;text-align:center;color:var(--ink-faint);font-weight:700;font-size:13px;margin:-6px 0 14px}
+
+  .glist-h{font-size:13px;font-weight:800;color:var(--ink-faint);margin:4px 2px 10px;text-transform:uppercase;letter-spacing:.4px}
+  .tile{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:11px 14px;margin-bottom:9px;box-shadow:var(--shadow-sm);animation:pop .25s ease}
+  @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+  .tile .heatdot{width:14px;height:14px;border-radius:50%;flex:none}
+  .tile .w{flex:1;font-weight:800;font-size:16px}
+  .tile .by{font-size:11px;font-weight:700;color:var(--ink-faint)}
+  .tile .rk{font-weight:900;font-size:15px;font-variant-numeric:tabular-nums}
+  .tile .meter{width:64px;height:7px;border-radius:4px;background:var(--line);overflow:hidden;flex:none}
+  .tile .meter>i{display:block;height:100%}
+  .tile.fresh{box-shadow:0 0 0 2px var(--coral)}
+
+  /* solved */
+  .solved-card{border-radius:var(--radius);padding:26px 20px;text-align:center;color:#fff;margin-bottom:14px;
+    background:linear-gradient(135deg,var(--mint),var(--mint-deep));box-shadow:var(--shadow-lg)}
+  .solved-card .big{font-size:34px;font-weight:900;letter-spacing:-.5px;margin:6px 0}
+  .solved-card .meta{font-weight:700;opacity:.95;font-size:14px}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--ink);color:#fff;padding:13px 20px;border-radius:999px;font-weight:800;font-size:14px;
+    box-shadow:var(--shadow-lg);z-index:60;transition:.25s;pointer-events:none;max-width:90%;text-align:center}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .toast.turn{background:var(--coral)}
+
+  .loading{text-align:center;color:var(--ink-faint);padding:40px;font-weight:700}
+  .confetti{position:fixed;width:11px;height:14px;top:-20px;z-index:55;border-radius:2px;pointer-events:none}
+</style>
+</head>
+<body>
+
+<!-- ===== AUTH ===== -->
+<div id="auth" class="auth-wrap hidden">
+  <div>
+    <div class="logo" style="justify-content:center;font-size:34px"><span class="dot"></span>Bullseye</div>
+    <p style="margin-top:14px">Guess the secret word together — one teammate at a time. Warmer, warmer… 🔥</p>
+  </div>
+  <div id="auth-email-step">
+    <input id="email" class="field" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com">
+    <button id="send-code" class="btn" style="margin-top:12px">Send me a code</button>
+    <p class="hint" style="margin-top:12px">Same login as Called It — sign in once for both.</p>
+  </div>
+  <div id="auth-code-step" class="hidden">
+    <p>Enter the code we sent to <b id="email-echo"></b></p>
+    <input id="code" class="field" inputmode="numeric" autocomplete="one-time-code" placeholder="• • • • • •">
+    <button id="verify-code" class="btn" style="margin-top:12px">Enter</button>
+    <button id="back-email" class="btn ghost" style="margin-top:10px">Use a different email</button>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app" class="hidden">
+  <div class="top">
+    <div class="logo"><span class="dot"></span>Bullseye</div>
+    <div class="spacer"></div>
+    <a class="switch" href="index.html">🎯 Called It</a>
+    <span id="me-chip" class="chip"><span id="me-ava" class="ava"></span><span id="me-name"></span></span>
+  </div>
+
+  <!-- today list -->
+  <div id="today-view">
+    <div class="sub" id="today-sub">Today’s 5 puzzles</div>
+    <div id="puzzle-list"><div class="loading">Loading puzzles…</div></div>
+  </div>
+
+  <!-- single session -->
+  <div id="session-view" class="hidden">
+    <button class="back" id="back-btn">‹ Today’s puzzles</button>
+    <div id="session-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SB_URL = "https://dogsgcqlqmfthswvsotw.supabase.co";
+const SB_KEY = "sb_publishable_VJ20zOz7lsFc9BMId96WsQ_Bq2_-jaS";
+const sb = supabase.createClient(SB_URL, SB_KEY);
+const MAXR = 30000;
+
+/* ---------- state ---------- */
+let me=null, profiles={}, todaySessions=[], openId=null, openGuesses=[], tick=null, lastTurnMine=false;
+const todayStr = () => new Date(Date.now()+2*3600e3).toISOString().slice(0,10); // UTC+2 day
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+function toast(msg,kind=''){const t=$('#toast');t.textContent=msg;t.className='toast show '+kind;
+  clearTimeout(t._t);t._t=setTimeout(()=>t.className='toast',2200);}
+function hex2rgb(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function mix(c1,c2,t){const a=hex2rgb(c1),b=hex2rgb(c2);
+  return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`;}
+function heatOf(rank){if(rank==null)return 0;return Math.max(0,Math.min(1,1-Math.log10(rank)/Math.log10(MAXR)));}
+function heatColor(h){return h<0.5?mix('#2D7DFF','#FFC93C',h/0.5):mix('#FFC93C','#FF5B4C',(h-0.5)/0.5);}
+function heatLabel(h){return h>=0.85?'🔥 On fire':h>=0.65?'♨️ Warm':h>=0.45?'🌤️ Getting there':h>=0.25?'❄️ Cold':'🧊 Freezing';}
+function pname(id){const p=profiles[id];return p?p.name:'—';}
+function avaHTML(id,cls='ava'){const p=profiles[id]||{};const c=p.color||'#FF5B4C';
+  return `<span class="${cls}" style="background:${c}">${p.emoji||'🎯'}</span>`;}
+
+/* ---------- auth ---------- */
+$('#send-code').onclick=async()=>{
+  const email=$('#email').value.trim(); if(!email)return;
+  $('#send-code').disabled=true;$('#send-code').textContent='Sending…';
+  const {error}=await sb.auth.signInWithOtp({email});
+  $('#send-code').disabled=false;$('#send-code').textContent='Send me a code';
+  if(error){toast(error.message);return;}
+  $('#email-echo').textContent=email;$('#auth-email-step').classList.add('hidden');$('#auth-code-step').classList.remove('hidden');
+};
+$('#verify-code').onclick=async()=>{
+  const email=$('#email').value.trim(),token=$('#code').value.trim().replace(/\D/g,'');
+  if(token.length<6)return;
+  $('#verify-code').disabled=true;$('#verify-code').textContent='Checking…';
+  const {error}=await sb.auth.verifyOtp({email,token,type:'email'});
+  $('#verify-code').disabled=false;$('#verify-code').textContent='Enter';
+  if(error){toast(error.message);return;}
+  boot();
+};
+$('#back-email').onclick=()=>{$('#auth-code-step').classList.add('hidden');$('#auth-email-step').classList.remove('hidden');};
+
+/* ---------- boot ---------- */
+async function boot(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){$('#auth').classList.remove('hidden');$('#app').classList.add('hidden');return;}
+  $('#auth').classList.add('hidden');$('#app').classList.remove('hidden');
+  me=session.user;
+  await loadProfiles();
+  const mine=profiles[me.id]||{};
+  $('#me-name').textContent=mine.name||'You';
+  $('#me-ava').style.background=mine.color||'#FF5B4C';$('#me-ava').textContent=mine.emoji||'🎯';
+  await loadToday();
+  subscribe();
+  if('Notification' in window && Notification.permission==='default'){
+    setTimeout(()=>Notification.requestPermission(),1500);
+  }
+  if(!tick) tick=setInterval(onTick,1000);
+}
+async function loadProfiles(){
+  const {data}=await sb.from('profiles').select('id,name,color,emoji');
+  profiles={};(data||[]).forEach(p=>profiles[p.id]=p);
+}
+async function loadToday(){
+  const {data}=await sb.from('wg_sessions').select('*').eq('game_date',todayStr()).order('slot');
+  todaySessions=data||[];
+  if(openId){const s=todaySessions.find(x=>x.id===openId);if(s)renderSession(s);}
+  else renderToday();
+}
+
+/* ---------- today list ---------- */
+function renderToday(){
+  const list=$('#puzzle-list');
+  if(!todaySessions.length){list.innerHTML='<div class="loading">No puzzles yet today — check back soon!</div>';return;}
+  const solved=todaySessions.filter(s=>s.status==='solved').length;
+  $('#today-sub').textContent=`Today’s 5 puzzles · ${solved}/${todaySessions.length} solved`;
+  list.innerHTML=todaySessions.map(s=>{
+    const h=heatOf(s.best_rank);const col=heatColor(h);
+    let badge,meta;
+    if(s.status==='solved'){badge=`<span class="badge solved">✓ Solved</span>`;
+      meta=`Cracked in ${s.guess_count} · ${pname(s.solved_by)}`;}
+    else if(s.current_player_id===me.id){badge=`<span class="badge you">🎯 Your turn</span>`;
+      meta=s.guess_count?`${s.guess_count} guesses so far`:'Be the first to guess';}
+    else{badge=`<span class="badge wait">⏳ ${pname(s.current_player_id)}</span>`;
+      meta=s.guess_count?`${s.guess_count} guesses so far`:'Waiting to start';}
+    const rankHTML=s.best_rank?`<div class="pz-rank" style="color:${col}">#${s.best_rank}<small>closest</small></div>`
+      :`<div class="pz-rank" style="color:var(--ink-faint)">—<small>no guesses</small></div>`;
+    return `<div class="puzzle" onclick="openSession('${s.id}')">
+      <div class="pz-num" style="background:${s.status==='solved'?'var(--mint)':'var(--blue)'}">${s.slot}</div>
+      <div class="pz-body">
+        <div class="pz-title">Puzzle ${s.slot} ${badge}</div>
+        <div class="pz-meta">${meta}</div>
+        <div class="heatbar"><i style="width:${Math.round(h*100)}%;background:${col}"></i></div>
+      </div>
+      <div class="pz-right">${rankHTML}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- session view ---------- */
+async function openSession(id){
+  openId=id;
+  $('#today-view').classList.add('hidden');$('#session-view').classList.remove('hidden');
+  $('#session-body').innerHTML='<div class="loading">Loading…</div>';
+  await loadGuesses();
+  const s=todaySessions.find(x=>x.id===id);if(s)renderSession(s);
+  window.scrollTo(0,0);
+}
+$('#back-btn').onclick=()=>{openId=null;openGuesses=[];$('#session-view').classList.add('hidden');
+  $('#today-view').classList.remove('hidden');renderToday();};
+
+async function loadGuesses(){
+  const {data}=await sb.from('wg_guesses').select('*').eq('session_id',openId).order('rank');
+  openGuesses=data||[];
+}
+function renderSession(s){
+  const mine=s.status==='open'&&s.current_player_id===me.id;
+  const h=heatOf(s.best_rank);const col=heatColor(h);
+  let html='';
+
+  if(s.status==='solved'){
+    const word=(openGuesses.find(g=>g.rank===1)||{}).word||'';
+    html+=`<div class="solved-card">
+      <div style="font-size:13px;font-weight:800;opacity:.9;text-transform:uppercase;letter-spacing:.5px">Bullseye!</div>
+      <div class="big">${word.toUpperCase()}</div>
+      <div class="meta">Solved in ${s.guess_count} guesses · finished by ${pname(s.solved_by)}</div>
+    </div>`;
+  }else{
+    // rally banner
+    if(s.best_rank){
+      html+=`<div class="rally" style="background:linear-gradient(135deg,${col},${mix(col,'#000',0.18)})">
+        <div class="glow"></div>
+        <div class="lbl">${heatLabel(h)} · closest so far</div>
+        <div class="word">${s.best_word}</div>
+        <div class="rk">rank #${s.best_rank}</div></div>`;
+    }else{
+      html+=`<div class="rally empty"><div class="glow"></div>
+        <div class="lbl">No guesses yet</div>
+        <div class="word">Puzzle ${s.slot}</div>
+        <div class="rk">Land the first guess to set the pace</div></div>`;
+    }
+    // turn bar
+    const rem=turnRemaining(s);
+    if(mine){
+      html+=`<div class="turnbar me"><span class="t-emoji">🎯</span>
+        <div class="t-text">Your turn!<small>Guess a word — or pass</small></div>
+        <span class="timer" id="timer">${fmt(rem)}</span></div>`;
+    }else{
+      html+=`<div class="turnbar">${avaHTML(s.current_player_id,'ava')}
+        <div class="t-text">${pname(s.current_player_id)}’s turn<small>Hang tight — you’re up next rounds</small></div>
+        <span class="timer" id="timer">${fmt(rem)}</span></div>`;
+    }
+    // input
+    html+=`<div class="guessrow">
+      <input id="guess-input" placeholder="${mine?'Type a word…':'Waiting for your turn'}" ${mine?'':'disabled'}
+        autocomplete="off" autocapitalize="none" spellcheck="false">
+      <button class="gbtn" id="guess-btn" ${mine?'':'disabled'}>Guess</button></div>`;
+    if(mine)html+=`<a class="passlink" id="pass-link">skip my turn →</a>`;
+  }
+
+  // guess list
+  if(openGuesses.length){
+    html+=`<div class="glist-h">Guesses · ${openGuesses.length}</div>`;
+    html+=openGuesses.map(g=>{
+      const gh=heatOf(g.rank),gc=heatColor(gh);
+      return `<div class="tile" data-w="${g.word}">
+        <span class="heatdot" style="background:${gc}"></span>
+        <div class="w">${g.word}<span class="by"> · ${pname(g.player_id)}</span></div>
+        <div class="meter"><i style="width:${Math.round(gh*100)}%;background:${gc}"></i></div>
+        <div class="rk" style="color:${gc}">#${g.rank}</div></div>`;
+    }).join('');
+  }
+  $('#session-body').innerHTML=html;
+
+  if(s.status==='open'&&mine){
+    const inp=$('#guess-input'),btn=$('#guess-btn');
+    btn.onclick=()=>doGuess(s.id);
+    inp.onkeydown=e=>{if(e.key==='Enter')doGuess(s.id);};
+    $('#pass-link').onclick=()=>doPass(s.id);
+    setTimeout(()=>inp.focus(),50);
+  }
+}
+function turnRemaining(s){
+  if(s.status!=='open')return 0;
+  return Math.max(0,900-Math.floor((Date.now()-new Date(s.turn_started_at).getTime())/1000));
+}
+function fmt(sec){const m=Math.floor(sec/60),x=sec%60;return m+':'+String(x).padStart(2,'0');}
+
+/* ---------- actions ---------- */
+async function doGuess(id){
+  const inp=$('#guess-input');const w=(inp.value||'').trim();if(!w)return;
+  const btn=$('#guess-btn');btn.disabled=true;
+  const {data,error}=await sb.rpc('wg_submit_guess',{p_session:id,p_word:w});
+  if(error){toast(error.message.replace(/^.*:/,'').trim());btn.disabled=false;return;}
+  if(!data.valid){
+    toast(data.reason==='duplicate'?'Already guessed that one':'Not in the word list — try another');
+    btn.disabled=false;inp.select();return;
+  }
+  inp.value='';
+  if(data.solved){burst();toast('🎯 BULLSEYE!','turn');}
+  await loadGuesses();await loadToday();
+}
+async function doPass(id){
+  if(!confirm('Skip your turn? It moves to the next player.'))return;
+  const {error}=await sb.rpc('wg_pass',{p_session:id});
+  if(error){toast(error.message);return;}
+  await loadToday();
+}
+
+/* ---------- realtime + timing ---------- */
+function subscribe(){
+  sb.channel('bullseye')
+    .on('postgres_changes',{event:'*',schema:'public',table:'wg_sessions'},()=>loadToday())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'wg_guesses'},p=>{
+      if(openId&&p.new.session_id===openId)loadGuesses().then(()=>{const s=todaySessions.find(x=>x.id===openId);if(s)renderSession(s);});
+    })
+    .subscribe();
+}
+function onTick(){
+  const s=openId?todaySessions.find(x=>x.id===openId):null;
+  // update visible timer
+  if(s&&s.status==='open'){
+    const el=$('#timer');if(el){const r=turnRemaining(s);el.textContent=fmt(r);el.classList.toggle('low',r<=60);}
+  }
+  // "your turn" notification across all puzzles
+  const myTurnNow=todaySessions.some(x=>x.status==='open'&&x.current_player_id===me.id);
+  if(myTurnNow&&!lastTurnMine){
+    toast('🎯 It’s your turn!','turn');
+    if('Notification' in window&&Notification.permission==='granted'&&document.hidden){
+      try{new Notification('🎯 Bullseye — your turn!',{body:'Tap to make your guess.'});}catch(e){}
+    }
+  }
+  lastTurnMine=myTurnNow;
+}
+
+/* ---------- confetti ---------- */
+function burst(){const cs=['#FF5B4C','#2D7DFF','#FFC93C','#22CFA0'];
+  for(let i=0;i<70;i++){const d=document.createElement('div');d.className='confetti';
+    d.style.left=Math.random()*100+'vw';d.style.background=cs[i%4];
+    d.style.transform=`rotate(${Math.random()*360}deg)`;document.body.appendChild(d);
+    const fall=900+Math.random()*900;
+    d.animate([{top:'-20px',opacity:1},{top:'100vh',opacity:.9}],{duration:fall,easing:'cubic-bezier(.3,.6,.5,1)'});
+    setTimeout(()=>d.remove(),fall);}}
+
+/* ---------- lifecycle ---------- */
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&me){loadToday();if(openId)loadGuesses();}});
+window.addEventListener('online',()=>{if(me)loadToday();});
+sb.auth.onAuthStateChange((e)=>{if(e==='SIGNED_IN'&&$('#app').classList.contains('hidden'))boot();});
+boot();
+window.openSession=openSession;
+</script>
+</body>
+</html>
