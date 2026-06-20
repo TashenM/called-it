@@ -219,6 +219,28 @@ main{
 .pred-actions{display:flex; gap:10px;}
 .pred-actions .btn{flex:1;}
 
+/* In-progress (under 3 players) — a clean accent frame to signal "not yet valid" */
+.card.pred.inprog{
+  border:1.5px dashed var(--blue);
+  box-shadow:0 0 0 4px rgba(45,125,255,.08), 0 10px 24px -16px rgba(45,125,255,.5);
+  background:linear-gradient(#fff,#fff) padding-box,
+             linear-gradient(120deg, rgba(45,125,255,.10), rgba(34,207,160,.10)) border-box;
+}
+.inprog-note{
+  font-size:12.5px; font-weight:800; color:var(--blue);
+  background:rgba(45,125,255,.08); border-radius:11px; padding:8px 11px; margin:2px 0 10px;
+}
+.inprog-note b{color:var(--blue);}
+.your-call{
+  display:flex; align-items:center; gap:8px; font-weight:800; font-size:14px; color:var(--ink);
+  background:var(--bg, #FFF8F0); border:1px solid var(--line,#f0e6db); border-radius:12px;
+  padding:9px 12px; margin:2px 0 10px;
+}
+.your-call .yc-dot{width:18px; height:18px; border-radius:50%; display:grid; place-items:center;
+  font-size:11px; color:#fff; font-weight:900; flex:none;}
+.your-call .yc-dot.y{background:var(--mint,#22CFA0);} .your-call .yc-dot.n{background:var(--blue,#2D7DFF);}
+.your-call .yc-lock{margin-left:auto; opacity:.7;}
+
 /* Resolved stamp */
 .stamp{
   font-weight:900; font-size:13px; letter-spacing:.04em; padding:6px 12px; border-radius:var(--radius-pill);
@@ -675,7 +697,7 @@ async function refresh(){
   try{
     const [profiles, preds, calls, config] = await Promise.all([
       sb.from("profiles").select("id,name,color,emoji,created_at"),
-      sb.from("predictions").select("id,text,resolve_by,status,outcome,resolved_at,created_at,source,category,lock_at,resolve_at,daily_date"),
+      sb.from("predictions").select("id,text,resolve_by,status,outcome,resolved_at,resolved_by,created_at,created_by,source,category,lock_at,resolve_at,daily_date,call_count"),
       sb.from("calls").select("prediction_id,player_id,side,confidence,updated_at"),
       sb.from("app_config").select("season_start,admin_id").eq("id",1).maybeSingle()
     ]);
@@ -698,7 +720,10 @@ async function refresh(){
         id:r.id, text:r.text, resolveBy:r.resolve_by||"",
         status:r.status, outcome:r.outcome,
         resolvedAt: r.resolved_at ? Date.parse(r.resolved_at) : null,
+        resolvedBy: r.resolved_by || null,
         createdAt: r.created_at ? Date.parse(r.created_at) : 0,
+        createdBy: r.created_by || null,
+        callCount: r.call_count || 0,
         source: r.source || "manual",
         category: r.category || null,
         lockAt: r.lock_at ? Date.parse(r.lock_at) : null,
@@ -890,7 +915,7 @@ function renderPredict(){
 /* The special, pinned daily-call card */
 function dailyCallCard(p){
   const total = STATE.players.length;
-  const called = p.calls.length;
+  const called = p.callCount || 0;
   const locked = isLocked(p);
   const mineCall = p.calls.find(c => c.playerId === ME);
 
@@ -902,22 +927,12 @@ function dailyCallCard(p){
     strip = `<span class="dc-locked">🔒 Locked · awaiting result</span>`;
   }
 
-  // Consensus bar
-  let consensusHtml = "";
-  if(called){
-    const avg = p.calls.reduce((s,c)=> s + (c.side==="yes"?c.confidence/100:1-c.confidence/100),0)/called;
-    consensusHtml = `<div class="consensus" style="margin-top:10px">
-      <span>Crowd</span><div class="cbar"><span style="width:${Math.round(avg*100)}%"></span></div>
-      <span class="bold" style="color:#fff">${Math.round(avg*100)}% yes</span>
-    </div>`;
-  }
-
+  // Calls stay blind until the result is in — no crowd bar while live.
   let action;
-  if(locked){
+  if(mineCall){
+    action = `<div class="dc-note">✅ You called <b>${mineCall.side==="yes"?"YES":"NO"}</b> · ${mineCall.confidence}% 🔒${locked?"":" · calls stay hidden until the result"}</div>`;
+  } else if(locked){
     action = `<div class="dc-note">Calls are in — sit tight for the result.</div>`;
-  } else if(mineCall){
-    action = `<button class="btn dc-btn" data-action="open-call" data-pred="${p.id}">
-      ✅ You called ${mineCall.side==="yes"?"YES":"NO"} (${mineCall.confidence}%) · tap to change</button>`;
   } else {
     action = `<button class="btn dc-btn" data-action="open-call" data-pred="${p.id}">📣 Make your call</button>`;
   }
@@ -926,50 +941,56 @@ function dailyCallCard(p){
     <div class="dc-head"><span class="dc-badge">⭐ DAILY CALL</span>${strip}</div>
     <div class="dc-q">${esc(p.text)}</div>
     <div class="dc-meta">🟢 ${called}/${total} called${p.category?` · ${esc(p.category)}`:""}</div>
-    ${consensusHtml}
     ${action}
   </div>`;
 }
 
 function predictionCard(p){
-  const total = STATE.players.length;
-  const called = p.calls.length;
-  // Crowd consensus = average probability the statement is TRUE
-  let consensusHtml = "";
-  if(called){
-    const avg = p.calls.reduce((sum,c) => sum + (c.side==="yes" ? c.confidence/100 : 1-c.confidence/100), 0)/called;
-    consensusHtml = `<div class="consensus">
-      <span>Crowd</span>
-      <div class="cbar"><span style="width:${Math.round(avg*100)}%"></span></div>
-      <span class="bold" style="color:var(--ink)">${Math.round(avg*100)}% yes</span>
-    </div>`;
-  }
-  const callerChips = p.calls.map(c => {
-    const pl = getPlayer(c.playerId); if(!pl) return "";
-    const dotColor = c.side==="yes" ? "var(--mint)" : "var(--blue)";
-    return `<span class="caller-chip">
-      <span class="sidedot" style="background:${dotColor}">${c.side==="yes"?"✓":"✕"}</span>
-      ${esc(pl.name)} · ${c.confidence}%</span>`;
-  }).join("");
+  const count = p.callCount || 0;
+  const mineCall = p.calls.find(c => c.playerId === ME);
+  const closed = isLocked(p);              // past the close time
+  const confirmed = count >= 3;
+  const iCreated = p.createdBy === ME;
+  const canResolve = closed && confirmed && !iCreated && !mineCall;
 
-  let dateMeta = "";
-  if(p.resolveBy){
-    const overdue = isPast(p.resolveBy);
-    dateMeta = `<span class="pill ${overdue?'warn':'grey'}">${overdue?'⏰ due ':'📅 by '}${fmtDate(p.resolveBy)}</span>`;
+  // status strip: caller count + close countdown / closed
+  let strip = `<span class="pill live">🟢 ${count} called</span>`;
+  if(!closed && p.lockAt){
+    strip += `<span class="pill grey">⏳ closes ${lockCountdown(p.lockAt)}</span>`;
+  } else if(closed){
+    strip += `<span class="pill grey">🔒 calls closed</span>`;
   }
 
-  return `<div class="card pred">
+  // not-yet-confirmed nudge (under 3 players)
+  const confirmNote = !confirmed
+    ? `<div class="inprog-note">⏳ In progress — needs ${3-count} more ${3-count===1?'player':'players'} to count <b>(${count}/3)</b></div>`
+    : "";
+
+  // your own (locked) call — others stay hidden until it resolves (blind)
+  const yourCall = mineCall
+    ? `<div class="your-call"><span class="yc-dot ${mineCall.side==='yes'?'y':'n'}">${mineCall.side==='yes'?'✓':'✕'}</span>
+         You called <b>${mineCall.side==='yes'?'YES':'NO'}</b> · ${mineCall.confidence}% <span class="yc-lock">🔒</span></div>`
+    : "";
+
+  // actions
+  let actions = "";
+  if(!mineCall && !closed){
+    actions += `<button class="btn ghost" data-action="open-call" data-pred="${p.id}">📣 Make your call</button>`;
+  }
+  if(canResolve){
+    actions += `<button class="btn mint" data-action="open-resolve" data-pred="${p.id}">✅ Resolve</button>`;
+  } else if(closed && confirmed && (iCreated || mineCall)){
+    actions += `<div class="tiny muted" style="padding:2px">🧑‍⚖️ Waiting on a neutral player to resolve — you've got a stake in this one.</div>`;
+  } else if(closed && !confirmed){
+    actions += `<div class="tiny muted" style="padding:2px">Closed without 3 players — this one expires and won't count.</div>`;
+  }
+
+  return `<div class="card pred${confirmed?'':' inprog'}">
     <div class="statement">${esc(p.text)}</div>
-    <div class="meta">
-      <span class="pill live">🟢 ${called}/${total} called</span>
-      ${dateMeta}
-    </div>
-    ${consensusHtml}
-    ${callerChips ? `<div class="callers">${callerChips}</div>` : ""}
-    <div class="pred-actions">
-      <button class="btn ghost" data-action="open-call" data-pred="${p.id}">📣 Make a call</button>
-      <button class="btn mint" data-action="open-resolve" data-pred="${p.id}">✅ Resolve</button>
-    </div>
+    <div class="meta">${strip}</div>
+    ${confirmNote}
+    ${yourCall}
+    ${actions ? `<div class="pred-actions">${actions}</div>` : ""}
   </div>`;
 }
 
@@ -1116,7 +1137,7 @@ async function doResetBoard(){
 /* ---------- HISTORY ---------- */
 function renderHistory(){
   const el = document.getElementById("view-history");
-  const resolved = STATE.predictions.filter(p => p.status === "resolved" || p.status === "void")
+  const resolved = STATE.predictions.filter(p => p.status === "resolved" || p.status === "void" || p.status === "expired")
                      .sort((a,b) => (b.resolvedAt||0) - (a.resolvedAt||0));
   const pending = STATE.predictions.filter(p => p.status === "pending")
                      .sort((a,b) => b.createdAt - a.createdAt);
@@ -1140,16 +1161,18 @@ function renderHistory(){
 }
 
 function resolvedCard(p){
-  if(p.status === "void"){
+  if(p.status === "void" || p.status === "expired"){
+    const exp = p.status === "expired";
     return `<div class="card" style="opacity:.78">
       <div class="row spread" style="align-items:flex-start; margin-bottom:6px">
         <div class="statement" style="flex:1; margin:0">${p.source==="daily"?'⭐ ':''}${esc(p.text)}</div>
-        <span class="stamp" style="background:#E6E6EC; color:var(--ink-soft)">NO CONTEST</span>
+        <span class="stamp" style="background:#E6E6EC; color:var(--ink-soft)">${exp?'EXPIRED':'NO CONTEST'}</span>
       </div>
-      <div class="tiny muted">Voided — no points awarded.</div>
+      <div class="tiny muted">${exp?'Didn’t reach 3 players before closing — no points awarded.':'Voided — no points awarded.'}</div>
     </div>`;
   }
   const outcome = p.outcome === true;
+  const resolver = getPlayer(p.resolvedBy);
   const lines = p.calls
     .map(c => ({ c, pts: scoreCall(c, p.outcome) }))
     .sort((a,b) => b.pts - a.pts)
@@ -1172,17 +1195,21 @@ function resolvedCard(p){
       <span class="stamp ${outcome?'t':'f'}">${outcome?'IT HAPPENED':"DIDN'T HAPPEN"}</span>
     </div>
     ${p.calls.length ? lines : `<div class="tiny muted">No one called this one.</div>`}
+    ${resolver ? `<div class="tiny muted" style="margin-top:8px">⚖️ Resolved by ${esc(resolver.name)}</div>` : ""}
   </div>`;
 }
 
 function pendingMini(p){
+  const count = p.callCount || 0;
+  const closed = isLocked(p);
+  const canResolve = closed && count>=3 && p.createdBy!==ME && !p.calls.find(c=>c.playerId===ME);
   return `<div class="card" style="padding:13px 15px">
     <div class="row spread">
       <div style="flex:1; min-width:0">
         <div class="bold" style="font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(p.text)}</div>
-        <div class="tiny muted">${p.calls.length} call${p.calls.length===1?"":"s"} so far${p.resolveBy?` · due ${fmtDate(p.resolveBy)}`:""}</div>
+        <div class="tiny muted">${count} call${count===1?"":"s"}${count<3?` · needs ${3-count} more`:""}${closed?" · closed":""}</div>
       </div>
-      <button class="btn ghost tiny-btn" data-action="open-resolve" data-pred="${p.id}">Resolve</button>
+      ${canResolve ? `<button class="btn ghost tiny-btn" data-action="open-resolve" data-pred="${p.id}">Resolve</button>` : ""}
     </div>
   </div>`;
 }
@@ -1331,8 +1358,17 @@ function sheetNewPrediction(){
     <label class="fl" for="ptext">The prediction</label>
     <textarea class="field" id="ptext" inputmode="text" autocapitalize="sentences" enterkeyhint="done"
       maxlength="160" placeholder="It'll rain at the BBQ on Saturday"></textarea>
-    <label class="fl" for="pdate">Resolve by <span class="faint">(optional)</span></label>
-    <input class="field" id="pdate" type="date" min="${todayStr()}">
+    <label class="fl" for="pclose">Calls close in</label>
+    <select class="field" id="pclose">
+      <option value="15">15 minutes</option>
+      <option value="30">30 minutes</option>
+      <option value="60" selected>1 hour</option>
+      <option value="180">3 hours</option>
+      <option value="360">6 hours</option>
+      <option value="720">12 hours</option>
+      <option value="1440">24 hours</option>
+    </select>
+    <div class="tiny muted" style="margin:-4px 2px 6px">Once calls close nobody can join — and it needs <b>3 players</b> to count, or it expires.</div>
     <button class="btn coral" data-action="save-pred">Post it</button>
   `);
   setTimeout(()=>{ const i=document.getElementById("ptext"); if(i){i.focus();} }, 250);
@@ -1341,12 +1377,20 @@ async function savePrediction(){
   const ta = document.getElementById("ptext");
   const text = (ta.value||"").trim();
   if(!text){ ta.focus(); shake(ta); return; }
-  const resolveBy = document.getElementById("pdate").value || null;
+  const mins = parseInt((document.getElementById("pclose")||{}).value, 10) || 60;
+  const lockAt = new Date(Date.now() + mins*60000).toISOString();
   const btn = document.querySelector('[data-action="save-pred"]');
   if(btn){ btn.disabled = true; btn.textContent = "Posting…"; }
   const { error } = await sb.from("predictions")
-    .insert({ text, resolve_by: resolveBy, created_by: ME });
-  if(error){ toast("Couldn't post that — try again."); if(btn){btn.disabled=false; btn.textContent="Post it";} return; }
+    .insert({ text, created_by: ME, source: "manual", lock_at: lockAt });
+  if(error){
+    const m = error.message||"";
+    toast(/limit of 3/i.test(m) ? "That's your 3 new calls for today — predicting stays unlimited."
+        : /close time/i.test(m) ? "Pick a close time first."
+        : "Couldn't post that — try again.");
+    if(btn){btn.disabled=false; btn.textContent="Post it";}
+    return;
+  }
   await refresh();
   closeSheet();
   tab = "predict"; render();
@@ -1357,27 +1401,22 @@ async function savePrediction(){
 function sheetCall(predId){
   const pred = STATE.predictions.find(p=>p.id===predId);
   if(!pred || pred.status !== "pending") return;
-  if(isLocked(pred)){ toast("Calls for this one have locked. 🔒"); return; }
-  const existing = pred.calls.find(c=>c.playerId===ME);
-  draftCall = {
-    predId,
-    side: existing ? existing.side : null,
-    confidence: existing ? existing.confidence : null
-  };
+  if(isLocked(pred)){ toast("Calls for this one have closed. 🔒"); return; }
+  if(pred.calls.find(c=>c.playerId===ME)){ toast("Your call's already locked in — no changes. 🔒"); return; }
+  draftCall = { predId, side: null, confidence: null };
   renderCallSheet();
 }
 function renderCallSheet(){
   const pred = STATE.predictions.find(p=>p.id===draftCall.predId);
   const mine = me();
-  const already = pred.calls.find(c=>c.playerId===ME);
 
   let body = `
-    <div class="sheet-title">${already ? "Change your call" : "Make a call"}</div>
+    <div class="sheet-title">Make a call</div>
     <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(pred.text)}"</div>
     <div class="row" style="gap:10px; margin:2px 0 6px; align-items:center">
       <span class="avatar sm" style="background:${mine?mine.color:'#ccc'}">${mine?mine.emoji:'🙂'}</span>
       <span class="bold">${mine?esc(mine.name):"You"}</span>
-      <span class="tiny muted">your call only</span>
+      <span class="tiny muted">final · hidden until it resolves</span>
     </div>
     <label class="fl">Your call</label>
     <div class="yn">
@@ -1410,12 +1449,15 @@ async function saveCall(){
   const side = draftCall.side, confidence = draftCall.confidence;
   const btn = document.querySelector('[data-action="save-call"]');
   if(btn){ btn.disabled = true; btn.textContent = "Locking in…"; }
-  const { error } = await sb.from("calls").upsert(
-    { prediction_id: predId, player_id: ME, side, confidence },
-    { onConflict: "prediction_id,player_id" }
+  const { error } = await sb.from("calls").insert(
+    { prediction_id: predId, player_id: ME, side, confidence }
   );
   if(error){
-    toast(/resolved/i.test(error.message) ? "Too late — that one's resolved." : "Couldn't save your call.");
+    const m = error.message||"";
+    toast(/duplicate|unique/i.test(m) ? "You've already called this one. 🔒"
+        : /locked|closed/i.test(m) ? "Too late — calls have closed."
+        : /resolved/i.test(m) ? "Too late — that one's resolved."
+        : "Couldn't save your call.");
     if(btn){ btn.disabled=false; btn.textContent="Lock it in 🔒"; }
     return;
   }
@@ -1461,7 +1503,10 @@ async function doResolve(outcomeTrue){
 
   const { error } = await sb.rpc("resolve_prediction", { pred_id: predId, did_happen: !!outcomeTrue });
   if(error){
-    toast("Couldn't resolve — someone may have beaten you to it.");
+    const m = error.message||"";
+    toast(/your own|neutral|stake|3 players|calls close|settled/i.test(m)
+      ? m.replace(/^.*?:\s*/,"")
+      : "Couldn't resolve — someone may have beaten you to it.");
     await refresh();
     closeSheet();
     return;
