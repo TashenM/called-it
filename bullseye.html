@@ -73,28 +73,24 @@
 
   /* session view */
   .back{display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);font-weight:800;font-size:14px;padding:4px 0 10px}
-  .rally{position:relative;border-radius:var(--radius);padding:22px 20px;color:#fff;overflow:hidden;margin-bottom:14px;
-    background:linear-gradient(158deg,#262031 0%,#171120 52%,#0d0a14 100%);
-    border:1px solid rgba(255,255,255,.08);
-    box-shadow:0 24px 46px -18px rgba(18,8,28,.62), inset 0 1px 0 rgba(255,255,255,.07)}
-  .rally .heatglow{position:absolute;inset:0;z-index:0;pointer-events:none}
-  .rally .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px;position:relative;z-index:2}
-  .rally .pill{font-size:11.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:rgba(255,255,255,.9);
-    background:rgba(255,255,255,.09);padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.1)}
-  .rally .rankpill{font-size:15px;font-weight:900;background:rgba(0,0,0,.32);padding:6px 13px;border-radius:999px;
-    font-variant-numeric:tabular-nums;border:1px solid rgba(255,255,255,.12)}
-  .rally .word{position:relative;z-index:2;font-size:36px;font-weight:900;letter-spacing:-.6px;line-height:1.04;
-    word-break:break-word}
-  .rally .sub{position:relative;z-index:2;font-size:13.5px;font-weight:800;opacity:.88;margin-top:8px}
-  .rally .heatmeter{position:relative;z-index:2;height:9px;border-radius:6px;background:rgba(255,255,255,.13);
-    margin-top:16px;overflow:hidden}
-  .rally .heatmeter>i{display:block;height:100%;border-radius:6px;transition:width .55s cubic-bezier(.3,.7,.4,1)}
-  .rally .target{position:absolute;right:-46px;top:-50px;width:190px;height:190px;z-index:1;opacity:.45;
-    background:radial-gradient(circle,
-      transparent 0 7%, rgba(255,255,255,.14) 7% 11%,
-      transparent 11% 19%, rgba(255,255,255,.11) 19% 23%,
-      transparent 23% 32%, rgba(255,255,255,.09) 32% 36%,
-      transparent 36% 46%, rgba(255,255,255,.06) 46% 50%, transparent 50%)}
+  .rally{position:relative;border-radius:var(--radius);padding:20px;color:#fff;overflow:hidden;margin-bottom:14px;
+    background:linear-gradient(140deg,#2c3340 0%,#212732 52%,#161a22 100%);
+    box-shadow:0 16px 32px -14px rgba(15,18,24,.6)}
+  .rally::after{content:"";position:absolute;top:0;left:-65%;width:45%;height:100%;pointer-events:none;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.13),transparent);
+    transform:skewX(-18deg);animation:rallySheen 6s ease-in-out infinite}
+  @keyframes rallySheen{0%,60%{left:-65%}85%,100%{left:130%}}
+  @media (prefers-reduced-motion:reduce){.rally::after{animation:none;display:none}}
+  .rally .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;position:relative;z-index:2}
+  .rally .pill{font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.9}
+  .rally .rankpill{font-size:15px;font-weight:900;background:rgba(255,255,255,.13);padding:6px 13px;border-radius:999px;
+    font-variant-numeric:tabular-nums}
+  .rally .word{position:relative;z-index:2;font-size:34px;font-weight:900;letter-spacing:-.6px;line-height:1.05;word-break:break-word}
+  .rally .sub{position:relative;z-index:2;font-size:13.5px;font-weight:800;opacity:.82;margin-top:7px}
+  .rally .heatmeter{position:relative;z-index:2;height:8px;border-radius:5px;background:rgba(255,255,255,.16);
+    margin-top:15px;overflow:hidden}
+  .rally .heatmeter>i{display:block;height:100%;border-radius:5px;background:#fff;
+    transition:width .55s cubic-bezier(.3,.7,.4,1)}
 
   .lastguess{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);
     border-radius:14px;padding:11px 14px;margin-bottom:14px;box-shadow:var(--shadow-sm);font-size:15px}
@@ -364,22 +360,16 @@ function renderSession(s){
     if(next) html+=`<button class="btn" id="next-pz" style="margin-bottom:16px">Next puzzle →</button>`;
     else html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep);margin-bottom:16px">🎉 That’s all 5 for today — fresh puzzles at midnight!</div>`;
   }else{
-    // ----- closest-so-far rally banner (dark card, heat as accent) -----
+    // ----- closest-so-far rally banner (clean dark monochromatic) -----
     if(s.best_rank){
-      const glow=col.replace('rgb(','rgba(').replace(')',',0.34)');
-      const glowSoft=col.replace('rgb(','rgba(').replace(')',',0.16)');
       html+=`<div class="rally">
-        <div class="heatglow" style="background:radial-gradient(125% 120% at 84% -12%, ${glow} 0%, transparent 60%)"></div>
-        <div class="target"></div>
-        <div class="top"><span class="pill">🎯 Closest so far</span>
-          <span class="rankpill" style="color:${col}">#${s.best_rank}</span></div>
-        <div class="word" style="text-shadow:0 2px 26px ${glowSoft}">${s.best_word}</div>
+        <div class="top"><span class="pill">🎯 Closest so far</span><span class="rankpill">#${s.best_rank}</span></div>
+        <div class="word">${s.best_word}</div>
         <div class="sub">${heatLabel(h)}</div>
-        <div class="heatmeter"><i style="width:${Math.max(4,Math.round(h*100))}%;background:${col};box-shadow:0 0 16px ${glow}"></i></div>
+        <div class="heatmeter"><i style="width:${Math.max(4,Math.round(h*100))}%"></i></div>
       </div>`;
     }else{
       html+=`<div class="rally">
-        <div class="target"></div>
         <div class="top"><span class="pill">🎯 New puzzle</span></div>
         <div class="word">Puzzle ${s.slot}</div>
         <div class="sub" style="opacity:.8">Land the first guess to set the pace</div>
