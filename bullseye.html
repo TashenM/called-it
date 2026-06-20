@@ -73,28 +73,28 @@
 
   /* session view */
   .back{display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);font-weight:800;font-size:14px;padding:4px 0 10px}
-  .rally{position:relative;border-radius:var(--radius);padding:20px;color:#fff;box-shadow:var(--shadow-lg);
-    overflow:hidden;margin-bottom:14px}
-  .rally.empty{background:radial-gradient(120% 135% at 82% -12%,#3c4d68 0%,#2b2333 42%,#1d1824 100%)}
-  .rally .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;position:relative;z-index:2}
-  .rally .pill{font-size:11.5px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;
-    background:rgba(255,255,255,.18);padding:5px 12px;border-radius:999px}
-  .rally .rankpill{font-size:14px;font-weight:900;background:rgba(0,0,0,.30);padding:5px 13px;border-radius:999px;
-    font-variant-numeric:tabular-nums}
-  .rally .word{position:relative;z-index:2;font-size:34px;font-weight:900;letter-spacing:-.6px;line-height:1.05;
-    word-break:break-word;text-shadow:0 2px 18px rgba(0,0,0,.30)}
-  .rally .sub{position:relative;z-index:2;font-size:13.5px;font-weight:800;opacity:.95;margin-top:7px}
-  .rally .heatmeter{position:relative;z-index:2;height:8px;border-radius:5px;background:rgba(255,255,255,.18);
-    margin-top:15px;overflow:hidden}
-  .rally .heatmeter>i{display:block;height:100%;border-radius:5px;
-    background:linear-gradient(90deg,rgba(255,255,255,.5),#fff);box-shadow:0 0 14px rgba(255,255,255,.6);
-    transition:width .55s cubic-bezier(.3,.7,.4,1)}
-  .rally .target{position:absolute;right:-46px;top:-46px;width:188px;height:188px;z-index:1;opacity:.6;
+  .rally{position:relative;border-radius:var(--radius);padding:22px 20px;color:#fff;overflow:hidden;margin-bottom:14px;
+    background:linear-gradient(158deg,#262031 0%,#171120 52%,#0d0a14 100%);
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 24px 46px -18px rgba(18,8,28,.62), inset 0 1px 0 rgba(255,255,255,.07)}
+  .rally .heatglow{position:absolute;inset:0;z-index:0;pointer-events:none}
+  .rally .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px;position:relative;z-index:2}
+  .rally .pill{font-size:11.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:rgba(255,255,255,.9);
+    background:rgba(255,255,255,.09);padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.1)}
+  .rally .rankpill{font-size:15px;font-weight:900;background:rgba(0,0,0,.32);padding:6px 13px;border-radius:999px;
+    font-variant-numeric:tabular-nums;border:1px solid rgba(255,255,255,.12)}
+  .rally .word{position:relative;z-index:2;font-size:36px;font-weight:900;letter-spacing:-.6px;line-height:1.04;
+    word-break:break-word}
+  .rally .sub{position:relative;z-index:2;font-size:13.5px;font-weight:800;opacity:.88;margin-top:8px}
+  .rally .heatmeter{position:relative;z-index:2;height:9px;border-radius:6px;background:rgba(255,255,255,.13);
+    margin-top:16px;overflow:hidden}
+  .rally .heatmeter>i{display:block;height:100%;border-radius:6px;transition:width .55s cubic-bezier(.3,.7,.4,1)}
+  .rally .target{position:absolute;right:-46px;top:-50px;width:190px;height:190px;z-index:1;opacity:.45;
     background:radial-gradient(circle,
-      transparent 0 7%, rgba(255,255,255,.17) 7% 11%,
-      transparent 11% 19%, rgba(255,255,255,.13) 19% 23%,
-      transparent 23% 32%, rgba(255,255,255,.10) 32% 36%,
-      transparent 36% 46%, rgba(255,255,255,.07) 46% 50%, transparent 50%)}
+      transparent 0 7%, rgba(255,255,255,.14) 7% 11%,
+      transparent 11% 19%, rgba(255,255,255,.11) 19% 23%,
+      transparent 23% 32%, rgba(255,255,255,.09) 32% 36%,
+      transparent 36% 46%, rgba(255,255,255,.06) 46% 50%, transparent 50%)}
 
   .lastguess{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);
     border-radius:14px;padding:11px 14px;margin-bottom:14px;box-shadow:var(--shadow-sm);font-size:15px}
@@ -114,13 +114,21 @@
     background:var(--bg);color:var(--ink)}
   .timer.low{color:var(--coral-deep);background:#fff0ee}
 
-  .guessrow{display:flex;gap:8px;margin-bottom:16px}
-  .guessrow input{flex:1;padding:15px;border-radius:14px;border:2px solid var(--line);font-size:16px;font-weight:600;outline:none}
-  .guessrow input:focus{border-color:var(--coral)}
-  .guessrow input:disabled{background:#faf5ef;color:var(--ink-faint)}
-  .gbtn{padding:0 20px;border-radius:14px;background:var(--coral);color:#fff;font-weight:800;font-size:16px}
-  .gbtn:disabled{background:#e7ddd3;color:#fff}
-  .passlink{display:block;text-align:center;color:var(--ink-faint);font-weight:700;font-size:13px;margin:-6px 0 14px}
+  .guessrow{display:flex;gap:6px;margin-bottom:12px;padding:6px;border-radius:18px;
+    background:linear-gradient(120deg,var(--coral) 0%,#FF8A3C 48%,var(--yellow) 100%);
+    box-shadow:0 14px 30px -14px rgba(255,91,76,.55), 0 2px 8px rgba(80,40,20,.10);
+    transition:box-shadow .2s ease, transform .12s ease}
+  .guessrow:focus-within{box-shadow:0 16px 36px -12px rgba(255,91,76,.75), 0 0 0 4px rgba(255,201,60,.28)}
+  .guessrow.off{background:var(--line);box-shadow:none}
+  .guessrow input{flex:1;min-width:0;padding:15px 16px;border-radius:13px;border:none;background:#fff;
+    font-size:16px;font-weight:700;color:var(--ink);outline:none}
+  .guessrow input::placeholder{color:var(--ink-faint);font-weight:600}
+  .guessrow input:disabled{background:#f6f0e9;color:var(--ink-faint)}
+  .gbtn{padding:0 22px;border-radius:13px;background:var(--ink);color:#fff;font-weight:800;font-size:16px;
+    letter-spacing:.2px;transition:transform .1s ease}
+  .gbtn:active{transform:scale(.95)}
+  .guessrow.off .gbtn{background:#cbbfb2}
+  .passlink{display:block;text-align:center;color:var(--ink-faint);font-weight:700;font-size:13px;margin:0 0 16px}
 
   .glist-h{font-size:13px;font-weight:800;color:var(--ink-faint);margin:4px 2px 10px;text-transform:uppercase;letter-spacing:.4px}
   .tile{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;
@@ -356,22 +364,25 @@ function renderSession(s){
     if(next) html+=`<button class="btn" id="next-pz" style="margin-bottom:16px">Next puzzle →</button>`;
     else html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep);margin-bottom:16px">🎉 That’s all 5 for today — fresh puzzles at midnight!</div>`;
   }else{
-    // ----- closest-so-far rally banner -----
+    // ----- closest-so-far rally banner (dark card, heat as accent) -----
     if(s.best_rank){
-      const deep=mix(col,'#17101a',0.80), midc=mix(col,'#241019',0.42), glowC=mix(col,'#ffffff',0.30);
-      html+=`<div class="rally" style="background:radial-gradient(120% 135% at 82% -12%, ${glowC} 0%, ${midc} 34%, ${deep} 100%)">
+      const glow=col.replace('rgb(','rgba(').replace(')',',0.34)');
+      const glowSoft=col.replace('rgb(','rgba(').replace(')',',0.16)');
+      html+=`<div class="rally">
+        <div class="heatglow" style="background:radial-gradient(125% 120% at 84% -12%, ${glow} 0%, transparent 60%)"></div>
         <div class="target"></div>
-        <div class="top"><span class="pill">🎯 Closest so far</span><span class="rankpill">#${s.best_rank}</span></div>
-        <div class="word">${s.best_word}</div>
+        <div class="top"><span class="pill">🎯 Closest so far</span>
+          <span class="rankpill" style="color:${col}">#${s.best_rank}</span></div>
+        <div class="word" style="text-shadow:0 2px 26px ${glowSoft}">${s.best_word}</div>
         <div class="sub">${heatLabel(h)}</div>
-        <div class="heatmeter"><i style="width:${Math.max(4,Math.round(h*100))}%"></i></div>
+        <div class="heatmeter"><i style="width:${Math.max(4,Math.round(h*100))}%;background:${col};box-shadow:0 0 16px ${glow}"></i></div>
       </div>`;
     }else{
-      html+=`<div class="rally empty">
+      html+=`<div class="rally">
         <div class="target"></div>
         <div class="top"><span class="pill">🎯 New puzzle</span></div>
         <div class="word">Puzzle ${s.slot}</div>
-        <div class="sub">Land the first guess to set the pace</div>
+        <div class="sub" style="opacity:.8">Land the first guess to set the pace</div>
       </div>`;
     }
     // ----- last guess strip -----
@@ -396,7 +407,7 @@ function renderSession(s){
         <span class="timer" id="timer">${fmt(rem)}</span></div>`;
     }
     // input
-    html+=`<div class="guessrow">
+    html+=`<div class="guessrow ${mine?'':'off'}">
       <input id="guess-input" placeholder="${mine?'Type a word…':'Waiting for your turn'}" ${mine?'':'disabled'}
         autocomplete="off" autocapitalize="none" spellcheck="false">
       <button class="gbtn" id="guess-btn" ${mine?'':'disabled'}>Guess</button></div>`;
