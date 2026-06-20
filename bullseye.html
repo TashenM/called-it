@@ -73,22 +73,17 @@
 
   /* session view */
   .back{display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);font-weight:800;font-size:14px;padding:4px 0 10px}
-  .rally{position:relative;border-radius:var(--radius);padding:20px;color:#fff;overflow:hidden;margin-bottom:14px;
-    background:linear-gradient(140deg,#2c3340 0%,#212732 52%,#161a22 100%);
-    box-shadow:0 16px 32px -14px rgba(15,18,24,.6)}
-  .rally::after{content:"";position:absolute;top:0;left:-65%;width:45%;height:100%;pointer-events:none;
-    background:linear-gradient(100deg,transparent,rgba(255,255,255,.13),transparent);
-    transform:skewX(-18deg);animation:rallySheen 6s ease-in-out infinite}
-  @keyframes rallySheen{0%,60%{left:-65%}85%,100%{left:130%}}
-  @media (prefers-reduced-motion:reduce){.rally::after{animation:none;display:none}}
-  .rally .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;position:relative;z-index:2}
-  .rally .pill{font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.9}
-  .rally .rankpill{font-size:15px;font-weight:900;background:rgba(255,255,255,.13);padding:6px 13px;border-radius:999px;
-    font-variant-numeric:tabular-nums}
-  .rally .word{position:relative;z-index:2;font-size:34px;font-weight:900;letter-spacing:-.6px;line-height:1.05;word-break:break-word}
-  .rally .sub{position:relative;z-index:2;font-size:13.5px;font-weight:800;opacity:.82;margin-top:7px}
-  .rally .heatmeter{position:relative;z-index:2;height:8px;border-radius:5px;background:rgba(255,255,255,.16);
-    margin-top:15px;overflow:hidden}
+  .rally{position:relative;border-radius:var(--radius);padding:20px;color:#fff;margin-bottom:14px;
+    background:linear-gradient(152deg,#333b4b 0%,#232a36 52%,#161a22 100%);
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 18px 34px -16px rgba(12,15,22,.55), inset 0 1px 0 rgba(255,255,255,.12)}
+  .rally .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+  .rally .pill{font-size:11.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:rgba(255,255,255,.66)}
+  .rally .rankpill{font-size:15px;font-weight:900;background:rgba(255,255,255,.12);padding:6px 13px;border-radius:999px;
+    font-variant-numeric:tabular-nums;color:#fff}
+  .rally .word{font-size:34px;font-weight:900;letter-spacing:-.6px;line-height:1.05;word-break:break-word;color:#fff}
+  .rally .sub{font-size:13.5px;font-weight:800;color:rgba(255,255,255,.66);margin-top:7px}
+  .rally .heatmeter{height:8px;border-radius:5px;background:rgba(255,255,255,.13);margin-top:16px;overflow:hidden}
   .rally .heatmeter>i{display:block;height:100%;border-radius:5px;background:#fff;
     transition:width .55s cubic-bezier(.3,.7,.4,1)}
 
