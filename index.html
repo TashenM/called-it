@@ -973,11 +973,14 @@ function predictionCard(p){
     : "";
 
   // actions
+  const isAdmin = !!ME && ME === ADMIN_ID;
   let actions = "";
   if(!mineCall && !closed){
     actions += `<button class="btn ghost" data-action="open-call" data-pred="${p.id}">📣 Make your call</button>`;
   }
-  if(canResolve){
+  if(isAdmin){
+    actions += `<button class="btn" data-action="open-resolve" data-pred="${p.id}" style="background:#fff;border:1.5px solid var(--coral);color:var(--coral-deep);font-weight:800">🛠️ Admin resolve</button>`;
+  } else if(canResolve){
     actions += `<button class="btn mint" data-action="open-resolve" data-pred="${p.id}">✅ Resolve</button>`;
   } else if(closed && confirmed && (iCreated || mineCall)){
     actions += `<div class="tiny muted" style="padding:2px">🧑‍⚖️ Waiting on a neutral player to resolve — you've got a stake in this one.</div>`;
@@ -1203,13 +1206,14 @@ function pendingMini(p){
   const count = p.callCount || 0;
   const closed = isLocked(p);
   const canResolve = closed && count>=3 && p.createdBy!==ME && !p.calls.find(c=>c.playerId===ME);
+  const isAdmin = !!ME && ME === ADMIN_ID;
   return `<div class="card" style="padding:13px 15px">
     <div class="row spread">
       <div style="flex:1; min-width:0">
         <div class="bold" style="font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(p.text)}</div>
         <div class="tiny muted">${count} call${count===1?"":"s"}${count<3?` · needs ${3-count} more`:""}${closed?" · closed":""}</div>
       </div>
-      ${canResolve ? `<button class="btn ghost tiny-btn" data-action="open-resolve" data-pred="${p.id}">Resolve</button>` : ""}
+      ${(isAdmin || canResolve) ? `<button class="btn ghost tiny-btn" data-action="open-resolve" data-pred="${p.id}"${isAdmin && !canResolve ? ' style="border-color:var(--coral);color:var(--coral-deep)"' : ''}>${isAdmin && !canResolve ? "🛠️ Resolve" : "Resolve"}</button>` : ""}
     </div>
   </div>`;
 }
@@ -1501,10 +1505,11 @@ async function doResolve(outcomeTrue){
   const btns = document.querySelectorAll('[data-action="do-resolve"]');
   btns.forEach(b=>{ b.disabled = true; });
 
-  const { error } = await sb.rpc("resolve_prediction", { pred_id: predId, did_happen: !!outcomeTrue });
+  const isAdmin = !!ME && ME === ADMIN_ID;
+  const { error } = await sb.rpc(isAdmin ? "admin_resolve_prediction" : "resolve_prediction", { pred_id: predId, did_happen: !!outcomeTrue });
   if(error){
     const m = error.message||"";
-    toast(/your own|neutral|stake|3 players|calls close|settled/i.test(m)
+    toast(/your own|neutral|stake|3 players|calls close|settled|admin only|not found/i.test(m)
       ? m.replace(/^.*?:\s*/,"")
       : "Couldn't resolve — someone may have beaten you to it.");
     await refresh();
