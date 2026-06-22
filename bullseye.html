@@ -222,9 +222,13 @@ function toast(msg,kind=''){const t=$('#toast');t.textContent=msg;t.className='t
 function hex2rgb(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 function mix(c1,c2,t){const a=hex2rgb(c1),b=hex2rgb(c2);
   return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`;}
-function heatOf(rank){if(rank==null)return 0;return Math.max(0,Math.min(1,1-Math.log10(rank)/Math.log10(MAXR)));}
+// Honest heat: only the true neighbourhood (≈top 50) reads hot. The sqrt pulls
+// the mid-range down so a rank like #97 shows as a cool fringe, not "warm".
+function heatOf(rank){if(rank==null)return 0;if(rank<=1)return 1;
+  const x=Math.log10(rank)/Math.log10(MAXR);
+  return Math.max(0,Math.min(1,1-Math.sqrt(x)));}
 function heatColor(h){return h<0.5?mix('#2D7DFF','#FFC93C',h/0.5):mix('#FFC93C','#FF5B4C',(h-0.5)/0.5);}
-function heatLabel(h){return h>=0.85?'🔥 On fire':h>=0.65?'♨️ Warm':h>=0.45?'🌤️ Getting there':h>=0.25?'❄️ Cold':'🧊 Freezing';}
+function heatLabel(h){return h>=0.5?'🔥 On fire':h>=0.38?'♨️ Warm':h>=0.27?'🌤️ Getting there':h>=0.15?'❄️ Cold':'🧊 Freezing';}
 function pname(id){const p=profiles[id];return p?p.name:'—';}
 function avaHTML(id,cls='ava'){const p=profiles[id]||{};const c=p.color||'#FF5B4C';
   return `<span class="${cls}" style="background:${c}">${p.emoji||'🎯'}</span>`;}
