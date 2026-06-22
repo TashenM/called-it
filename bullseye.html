@@ -126,6 +126,10 @@
   .gbtn:active{transform:scale(.95)}
   .guessrow.cooldown .gbtn{background:#7d8896;font-variant-numeric:tabular-nums}
   .ff-hint{text-align:center;color:var(--ink-faint);font-weight:700;font-size:12px;margin:0 0 16px}
+  .pz-diffline{margin:0 0 10px}
+  .hintbar{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:11px 14px;border-radius:14px;
+    background:#fff7e6;border:1.5px solid #ffe0a3;color:#9a6b00;font-weight:800;font-size:14px}
+  .hintbar span{font-weight:800}
 
   .glist-h{font-size:13px;font-weight:800;color:var(--ink-faint);margin:4px 2px 10px;text-transform:uppercase;letter-spacing:.4px}
   .tile{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;
@@ -229,6 +233,9 @@ function heatOf(rank){if(rank==null)return 0;if(rank<=1)return 1;
   return Math.max(0,Math.min(1,1-Math.sqrt(x)));}
 function heatColor(h){return h<0.5?mix('#2D7DFF','#FFC93C',h/0.5):mix('#FFC93C','#FF5B4C',(h-0.5)/0.5);}
 function heatLabel(h){return h>=0.5?'🔥 On fire':h>=0.38?'♨️ Warm':h>=0.27?'🌤️ Getting there':h>=0.15?'❄️ Cold':'🧊 Freezing';}
+function diffMeta(d){return ({1:['Easy','#12A37C','#e6faf3'],2:['Medium','#2D7DFF','#e9f1ff'],3:['Hard','#E08A00','#fff4e0'],4:['Very hard','#E23B2C','#ffe9e6']})[d]||null;}
+function diffBadge(d){const x=diffMeta(d);return x?`<span class="badge" style="background:${x[2]};color:${x[1]}">${x[0]}</span>`:'';}
+function revealCap(d){return ({1:70,2:70,3:90,4:100})[d]||70;}
 function pname(id){const p=profiles[id];return p?p.name:'—';}
 function avaHTML(id,cls='ava'){const p=profiles[id]||{};const c=p.color||'#FF5B4C';
   return `<span class="${cls}" style="background:${c}">${p.emoji||'🎯'}</span>`;}
@@ -295,7 +302,7 @@ function renderToday(){
     if(s.status==='solved'){badge=`<span class="badge solved">✓ Solved</span>`;
       meta=`Cracked in ${s.guess_count} · ${pname(s.solved_by)}`;numColor='var(--mint)';}
     else if(s.status==='revealed'){badge=`<span class="badge wait" style="background:#f1edff;color:#6b54d3">Revealed</span>`;
-      meta=`Nobody got it in 50 — it was “${s.revealed_word}”`;numColor='#9a8f8a';}
+      meta=`Nobody got it in ${revealCap(s.difficulty)} — it was “${s.revealed_word}”`;numColor='#9a8f8a';}
     else{badge=`<span class="badge you">▶ Play now</span>`;
       meta=s.guess_count?`${s.guess_count} guesses so far`:'Be the first to guess';numColor='var(--blue)';}
     const rankHTML=s.best_rank?`<div class="pz-rank" style="color:${col}">#${s.best_rank}<small>closest</small></div>`
@@ -303,7 +310,7 @@ function renderToday(){
     return `<div class="puzzle" onclick="openSession('${s.id}')">
       <div class="pz-num" style="background:${numColor}">${s.slot}</div>
       <div class="pz-body">
-        <div class="pz-title">Puzzle ${s.slot} ${badge}</div>
+        <div class="pz-title">Puzzle ${s.slot} ${diffBadge(s.difficulty)} ${badge}</div>
         <div class="pz-meta">${meta}</div>
         <div class="heatbar"><i style="width:${Math.round(h*100)}%;background:${col}"></i></div>
       </div>
@@ -352,13 +359,14 @@ function renderSession(s){
       html+=`<div class="solved-card reveal">
         <div style="font-size:13px;font-weight:800;opacity:.9;text-transform:uppercase;letter-spacing:.5px">Out of guesses</div>
         <div class="big">${(s.revealed_word||'').toUpperCase()}</div>
-        <div class="meta">Nobody cracked it in 50 — that was the word. Onto the next!</div>
+        <div class="meta">Nobody cracked it in ${revealCap(s.difficulty)} — that was the word. Onto the next!</div>
       </div>`;
     }
     const next=todaySessions.find(x=>x.status==='open');
     if(next) html+=`<button class="btn" id="next-pz" style="margin-bottom:16px">Next puzzle →</button>`;
     else html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep);margin-bottom:16px">🎉 That’s all 5 for today — fresh puzzles at midnight!</div>`;
   }else{
+    if(s.difficulty){ html+=`<div class="pz-diffline">${diffBadge(s.difficulty)}</div>`; }
     // ----- closest-so-far : the gem -----
     if(s.best_rank){
       const bestG = openGuesses.find(g=>g.rank===s.best_rank) || openGuesses.find(g=>g.word===s.best_word);
@@ -377,6 +385,7 @@ function renderSession(s){
         <div class="r-detail"><span class="r-by">Land the first guess to set the pace</span></div>
       </div></div>`;
     }
+    if(s.hint){ html+=`<div class="hintbar">💡 <span>${s.hint}</span></div>`; }
     // ----- last guess strip -----
     const last = openGuesses.length ? openGuesses.reduce((a,b)=> new Date(b.created_at)>new Date(a.created_at)?b:a) : null;
     if(last){
