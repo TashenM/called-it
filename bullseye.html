@@ -73,19 +73,35 @@
 
   /* session view */
   .back{display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);font-weight:800;font-size:14px;padding:4px 0 10px}
-  .rally{position:relative;border-radius:var(--radius);padding:20px;color:#fff;margin-bottom:14px;
-    background:linear-gradient(152deg,#333b4b 0%,#232a36 52%,#161a22 100%);
-    border:1px solid rgba(255,255,255,.10);
-    box-shadow:0 18px 34px -16px rgba(12,15,22,.55), inset 0 1px 0 rgba(255,255,255,.12)}
-  .rally .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
-  .rally .pill{font-size:11.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:rgba(255,255,255,.66)}
-  .rally .rankpill{font-size:15px;font-weight:900;background:rgba(255,255,255,.12);padding:6px 13px;border-radius:999px;
-    font-variant-numeric:tabular-nums;color:#fff}
-  .rally .word{font-size:34px;font-weight:900;letter-spacing:-.6px;line-height:1.05;word-break:break-word;color:#fff}
-  .rally .sub{font-size:13.5px;font-weight:800;color:rgba(255,255,255,.66);margin-top:7px}
-  .rally .heatmeter{height:8px;border-radius:5px;background:rgba(255,255,255,.13);margin-top:16px;overflow:hidden}
-  .rally .heatmeter>i{display:block;height:100%;border-radius:5px;background:#fff;
-    transition:width .55s cubic-bezier(.3,.7,.4,1)}
+  /* ===== Closest-so-far : the gem ===== */
+  .rally{position:relative;margin-bottom:14px;padding:2px;border-radius:calc(var(--radius) + 2px);
+    background:conic-gradient(from 125deg at 50% 50%,
+      #74e0ff,#4d8bff,#8f6bff,#c56bff,#ff6fa8,#ffb86b,#7dffc4,#74e0ff);
+    box-shadow:0 20px 40px -18px rgba(18,22,40,.62), 0 2px 12px rgba(120,150,255,.20)}
+  .rally .gem{position:relative;border-radius:var(--radius);padding:18px 19px 17px;color:#fff;
+    background:
+      radial-gradient(135% 95% at 84% -18%, rgba(125,160,255,.24), transparent 56%),
+      radial-gradient(120% 90% at 4% 118%, rgba(197,107,255,.16), transparent 60%),
+      linear-gradient(158deg,#2b3242 0%,#1c2230 54%,#11141c 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12), inset 0 0 0 1px rgba(255,255,255,.04)}
+  .rally .r-label{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;
+    color:#bcd2ff;display:flex;align-items:center;gap:6px}
+  .rally .r-label .gemdot{font-size:10px;opacity:.95}
+  .rally .r-word{font-size:35px;font-weight:900;letter-spacing:-.7px;line-height:1.04;margin:8px 0 12px;
+    color:#fff;word-break:break-word;text-shadow:0 2px 14px rgba(0,0,0,.35)}
+  .rally .r-detail{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .rally .r-rank{display:inline-flex;align-items:center;font-size:13px;font-weight:900;color:#eaf2ff;
+    padding:4px 11px;border-radius:999px;font-variant-numeric:tabular-nums;border:1px solid transparent;
+    background:linear-gradient(#232b3a,#232b3a) padding-box,
+      linear-gradient(135deg,#7ae0ff,#9a6bff 55%,#ff8fb0) border-box}
+  .rally .r-by{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:rgba(255,255,255,.72)}
+  .rally .r-ava{width:20px;height:20px;border-radius:7px;display:inline-grid;place-items:center;font-size:11px;
+    border:1px solid rgba(255,255,255,.35)}
+  .rally .r-heat{display:flex;align-items:center;gap:11px;margin-top:15px}
+  .rally .r-heat .hl{font-size:12.5px;font-weight:800;color:rgba(255,255,255,.6);white-space:nowrap}
+  .rally .heatmeter{flex:1;height:7px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}
+  .rally .heatmeter>i{display:block;height:100%;border-radius:5px;
+    background:linear-gradient(90deg,#74e0ff,#cfe0ff);transition:width .55s cubic-bezier(.3,.7,.4,1)}
 
   .lastguess{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);
     border-radius:14px;padding:11px 14px;margin-bottom:14px;box-shadow:var(--shadow-sm);font-size:15px}
@@ -95,31 +111,21 @@
   .lastguess .lg-rank{font-weight:900;font-variant-numeric:tabular-nums}
   .lastguess .lg-by{margin-left:auto;font-size:12px;color:var(--ink-faint);font-weight:700}
 
-  .turnbar{display:flex;align-items:center;gap:10px;border-radius:16px;padding:13px 15px;margin-bottom:14px;font-weight:800;
-    border:1.5px solid var(--line);background:var(--card)}
-  .turnbar.me{border-color:var(--coral);background:#fff5f3}
-  .turnbar .t-emoji{font-size:20px}
-  .turnbar .t-text{flex:1;font-size:14px;line-height:1.25}
-  .turnbar .t-text small{display:block;font-weight:700;color:var(--ink-faint);font-size:12px}
-  .timer{font-variant-numeric:tabular-nums;font-weight:900;font-size:18px;padding:5px 10px;border-radius:10px;
-    background:var(--bg);color:var(--ink)}
-  .timer.low{color:var(--coral-deep);background:#fff0ee}
-
-  .guessrow{display:flex;gap:6px;margin-bottom:12px;padding:6px;border-radius:18px;
+  .guessrow{display:flex;gap:6px;margin-bottom:8px;padding:6px;border-radius:18px;
     background:linear-gradient(120deg,var(--coral) 0%,#FF8A3C 48%,var(--yellow) 100%);
     box-shadow:0 14px 30px -14px rgba(255,91,76,.55), 0 2px 8px rgba(80,40,20,.10);
     transition:box-shadow .2s ease, transform .12s ease}
   .guessrow:focus-within{box-shadow:0 16px 36px -12px rgba(255,91,76,.75), 0 0 0 4px rgba(255,201,60,.28)}
-  .guessrow.off{background:var(--line);box-shadow:none}
+  .guessrow.cooldown{background:linear-gradient(120deg,#c9d2dc,#aeb8c4);box-shadow:none}
   .guessrow input{flex:1;min-width:0;padding:15px 16px;border-radius:13px;border:none;background:#fff;
     font-size:16px;font-weight:700;color:var(--ink);outline:none}
   .guessrow input::placeholder{color:var(--ink-faint);font-weight:600}
-  .guessrow input:disabled{background:#f6f0e9;color:var(--ink-faint)}
+  .guessrow input:disabled{background:#eef1f5;color:var(--ink-faint)}
   .gbtn{padding:0 22px;border-radius:13px;background:var(--ink);color:#fff;font-weight:800;font-size:16px;
-    letter-spacing:.2px;transition:transform .1s ease}
+    letter-spacing:.2px;transition:transform .1s ease;min-width:74px}
   .gbtn:active{transform:scale(.95)}
-  .guessrow.off .gbtn{background:#cbbfb2}
-  .passlink{display:block;text-align:center;color:var(--ink-faint);font-weight:700;font-size:13px;margin:0 0 16px}
+  .guessrow.cooldown .gbtn{background:#7d8896;font-variant-numeric:tabular-nums}
+  .ff-hint{text-align:center;color:var(--ink-faint);font-weight:700;font-size:12px;margin:0 0 16px}
 
   .glist-h{font-size:13px;font-weight:800;color:var(--ink-faint);margin:4px 2px 10px;text-transform:uppercase;letter-spacing:.4px}
   .tile{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;
@@ -206,7 +212,7 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 const MAXR = 30000;
 
 /* ---------- state ---------- */
-let me=null, profiles={}, todaySessions=[], openId=null, openGuesses=[], tick=null, lastTurnMine=false;
+let me=null, profiles={}, todaySessions=[], openId=null, openGuesses=[], tick=null;
 const todayStr = () => new Date(Date.now()+2*3600e3).toISOString().slice(0,10); // UTC+2 day
 
 /* ---------- helpers ---------- */
@@ -255,9 +261,6 @@ async function boot(){
   $('#me-ava').style.background=mine.color||'#FF5B4C';$('#me-ava').textContent=mine.emoji||'🎯';
   await loadToday();
   subscribe();
-  if('Notification' in window && Notification.permission==='default'){
-    setTimeout(()=>Notification.requestPermission(),1500);
-  }
   if(!tick) tick=setInterval(onTick,1000);
 }
 async function loadProfiles(){
@@ -289,10 +292,8 @@ function renderToday(){
       meta=`Cracked in ${s.guess_count} · ${pname(s.solved_by)}`;numColor='var(--mint)';}
     else if(s.status==='revealed'){badge=`<span class="badge wait" style="background:#f1edff;color:#6b54d3">Revealed</span>`;
       meta=`Nobody got it in 50 — it was “${s.revealed_word}”`;numColor='#9a8f8a';}
-    else if(s.current_player_id===me.id){badge=`<span class="badge you">🎯 Your turn</span>`;
+    else{badge=`<span class="badge you">▶ Play now</span>`;
       meta=s.guess_count?`${s.guess_count} guesses so far`:'Be the first to guess';numColor='var(--blue)';}
-    else{badge=`<span class="badge wait">⏳ ${pname(s.current_player_id)}</span>`;
-      meta=s.guess_count?`${s.guess_count} guesses so far`:'Waiting to start';numColor='var(--blue)';}
     const rankHTML=s.best_rank?`<div class="pz-rank" style="color:${col}">#${s.best_rank}<small>closest</small></div>`
       :`<div class="pz-rank" style="color:var(--ink-faint)">—<small>no guesses</small></div>`;
     return `<div class="puzzle" onclick="openSession('${s.id}')">
@@ -331,7 +332,6 @@ async function loadGuesses(){
   openGuesses=data||[];
 }
 function renderSession(s){
-  const mine=s.status==='open'&&s.current_player_id===me.id;
   const h=heatOf(s.best_rank);const col=heatColor(h);
   let html='';
 
@@ -355,20 +355,23 @@ function renderSession(s){
     if(next) html+=`<button class="btn" id="next-pz" style="margin-bottom:16px">Next puzzle →</button>`;
     else html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep);margin-bottom:16px">🎉 That’s all 5 for today — fresh puzzles at midnight!</div>`;
   }else{
-    // ----- closest-so-far rally banner (clean dark monochromatic) -----
+    // ----- closest-so-far : the gem -----
     if(s.best_rank){
-      html+=`<div class="rally">
-        <div class="top"><span class="pill">🎯 Closest so far</span><span class="rankpill">#${s.best_rank}</span></div>
-        <div class="word">${s.best_word}</div>
-        <div class="sub">${heatLabel(h)}</div>
-        <div class="heatmeter"><i style="width:${Math.max(4,Math.round(h*100))}%"></i></div>
-      </div>`;
+      const bestG = openGuesses.find(g=>g.rank===s.best_rank) || openGuesses.find(g=>g.word===s.best_word);
+      const byHTML = bestG ? `<span class="r-by">${avaHTML(bestG.player_id,'r-ava')} landed by ${pname(bestG.player_id)}</span>` : '';
+      html+=`<div class="rally"><div class="gem">
+        <div class="r-label"><span class="gemdot">◈</span> Closest so far</div>
+        <div class="r-word">${s.best_word}</div>
+        <div class="r-detail"><span class="r-rank">#${s.best_rank}</span>${byHTML}</div>
+        <div class="r-heat"><span class="hl">${heatLabel(h)}</span>
+          <div class="heatmeter"><i style="width:${Math.max(4,Math.round(h*100))}%"></i></div></div>
+      </div></div>`;
     }else{
-      html+=`<div class="rally">
-        <div class="top"><span class="pill">🎯 New puzzle</span></div>
-        <div class="word">Puzzle ${s.slot}</div>
-        <div class="sub" style="opacity:.8">Land the first guess to set the pace</div>
-      </div>`;
+      html+=`<div class="rally"><div class="gem">
+        <div class="r-label"><span class="gemdot">◈</span> New puzzle</div>
+        <div class="r-word">Puzzle ${s.slot}</div>
+        <div class="r-detail"><span class="r-by">Land the first guess to set the pace</span></div>
+      </div></div>`;
     }
     // ----- last guess strip -----
     const last = openGuesses.length ? openGuesses.reduce((a,b)=> new Date(b.created_at)>new Date(a.created_at)?b:a) : null;
@@ -380,23 +383,15 @@ function renderSession(s){
         <span class="lg-rank" style="color:${lc}">#${last.rank}</span>
         <span class="lg-by">${pname(last.player_id)}</span></div>`;
     }
-    // turn bar
-    const rem=turnRemaining(s);
-    if(mine){
-      html+=`<div class="turnbar me"><span class="t-emoji">🎯</span>
-        <div class="t-text">Your turn!<small>Guess a word — or pass</small></div>
-        <span class="timer" id="timer">${fmt(rem)}</span></div>`;
-    }else{
-      html+=`<div class="turnbar">${avaHTML(s.current_player_id,'ava')}
-        <div class="t-text">${pname(s.current_player_id)}’s turn<small>Hang tight — you’re up next rounds</small></div>
-        <span class="timer" id="timer">${fmt(rem)}</span></div>`;
-    }
-    // input
-    html+=`<div class="guessrow ${mine?'':'off'}">
-      <input id="guess-input" placeholder="${mine?'Type a word…':'Waiting for your turn'}" ${mine?'':'disabled'}
+    // ----- free-for-all input (everyone can guess; 20s personal cooldown) -----
+    const myLast = openGuesses.filter(g=>g.player_id===me.id)
+      .reduce((a,b)=> (!a||new Date(b.created_at)>new Date(a.created_at))?b:a, null);
+    const cd = myLast ? Math.max(0, 20-Math.floor((Date.now()-new Date(myLast.created_at).getTime())/1000)) : 0;
+    html+=`<div class="guessrow ${cd>0?'cooldown':''}">
+      <input id="guess-input" placeholder="${cd>0?`Ready in ${cd}s…`:'Type a word…'}" ${cd>0?'disabled':''}
         autocomplete="off" autocapitalize="none" spellcheck="false">
-      <button class="gbtn" id="guess-btn" ${mine?'':'disabled'}>Guess</button></div>`;
-    if(mine)html+=`<a class="passlink" id="pass-link">skip my turn →</a>`;
+      <button class="gbtn" id="guess-btn" ${cd>0?'disabled':''}>${cd>0?cd+'s':'Guess'}</button></div>
+    <div class="ff-hint">Everyone can guess — just a 20s breather between your own tries</div>`;
   }
 
   // guess list
@@ -416,42 +411,40 @@ function renderSession(s){
   const nextBtn=$('#next-pz');
   if(nextBtn){const nx=todaySessions.find(x=>x.status==='open'); if(nx)nextBtn.onclick=()=>openSession(nx.id);}
 
-  if(s.status==='open'&&mine){
+  if(s.status==='open'){
     const inp=$('#guess-input'),btn=$('#guess-btn');
-    btn.onclick=()=>doGuess(s.id);
-    inp.onkeydown=e=>{if(e.key==='Enter')doGuess(s.id);};
-    $('#pass-link').onclick=()=>doPass(s.id);
-    setTimeout(()=>inp.focus(),50);
+    if(inp&&btn){
+      btn.onclick=()=>{ if(!btn.disabled) doGuess(s.id); };
+      inp.onkeydown=e=>{ if(e.key==='Enter'&&!inp.disabled) doGuess(s.id); };
+      if(!inp.disabled) setTimeout(()=>inp.focus(),50);
+    }
   }
 }
-function turnRemaining(s){
-  if(s.status!=='open')return 0;
-  return Math.max(0,240-Math.floor((Date.now()-new Date(s.turn_started_at).getTime())/1000));
+function cooldownLeft(){
+  if(!openId) return 0;
+  const myLast = openGuesses.filter(g=>g.player_id===me.id)
+    .reduce((a,b)=> (!a||new Date(b.created_at)>new Date(a.created_at))?b:a, null);
+  return myLast ? Math.max(0, 20-Math.floor((Date.now()-new Date(myLast.created_at).getTime())/1000)) : 0;
 }
-function fmt(sec){const m=Math.floor(sec/60),x=sec%60;return m+':'+String(x).padStart(2,'0');}
 
 /* ---------- actions ---------- */
 async function doGuess(id){
-  const inp=$('#guess-input');const w=(inp.value||'').trim();if(!w)return;
+  const inp=$('#guess-input');if(!inp||inp.disabled)return;
+  const w=(inp.value||'').trim();if(!w)return;
   const btn=$('#guess-btn');btn.disabled=true;
   const {data,error}=await sb.rpc('wg_submit_guess',{p_session:id,p_word:w});
   if(error){toast(error.message.replace(/^.*:/,'').trim());btn.disabled=false;return;}
   if(!data.valid){
-    toast(data.reason==='duplicate'?'Already guessed that one':'Not in the word list — try another');
-    btn.disabled=false;inp.select();return;
+    if(data.reason==='cooldown')toast(`Hold on — ${data.wait||20}s between your own guesses`);
+    else if(data.reason==='duplicate')toast('Already guessed that one');
+    else {toast('Not in the word list — try another');inp.select();}
+    btn.disabled=false;return;
   }
   inp.value='';
   if(data.solved){burst();toast('🎯 BULLSEYE!','turn');}
   else if(data.revealed){toast('Out of guesses — the word is revealed');}
   await loadGuesses();await loadToday();
 }
-async function doPass(id){
-  if(!confirm('Skip your turn? It moves to the next player.'))return;
-  const {error}=await sb.rpc('wg_pass',{p_session:id});
-  if(error){toast(error.message);return;}
-  await loadToday();
-}
-
 /* ---------- realtime + timing ---------- */
 function subscribe(){
   sb.channel('bullseye')
@@ -462,20 +455,21 @@ function subscribe(){
     .subscribe();
 }
 function onTick(){
-  const s=openId?todaySessions.find(x=>x.id===openId):null;
-  // update visible timer
-  if(s&&s.status==='open'){
-    const el=$('#timer');if(el){const r=turnRemaining(s);el.textContent=fmt(r);el.classList.toggle('low',r<=60);}
+  if(!openId) return;
+  const s=todaySessions.find(x=>x.id===openId);
+  if(!s||s.status!=='open') return;
+  const inp=$('#guess-input'),btn=$('#guess-btn'); if(!inp||!btn) return;
+  const cd=cooldownLeft();
+  const row=inp.closest('.guessrow');
+  if(cd>0){
+    inp.disabled=true; btn.disabled=true;
+    inp.placeholder=`Ready in ${cd}s…`; btn.textContent=cd+'s';
+    if(row)row.classList.add('cooldown');
+  }else if(inp.disabled){
+    inp.disabled=false; btn.disabled=false;
+    inp.placeholder='Type a word…'; btn.textContent='Guess';
+    if(row)row.classList.remove('cooldown');
   }
-  // "your turn" notification across all puzzles
-  const myTurnNow=todaySessions.some(x=>x.status==='open'&&x.current_player_id===me.id);
-  if(myTurnNow&&!lastTurnMine){
-    toast('🎯 It’s your turn!','turn');
-    if('Notification' in window&&Notification.permission==='granted'&&document.hidden){
-      try{new Notification('🎯 Bullseye — your turn!',{body:'Tap to make your guess.'});}catch(e){}
-    }
-  }
-  lastTurnMine=myTurnNow;
 }
 
 /* ---------- confetti ---------- */
