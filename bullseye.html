@@ -236,6 +236,7 @@ function heatLabel(h){return h>=0.5?'🔥 On fire':h>=0.38?'♨️ Warm':h>=0.27
 function diffMeta(d){return ({1:['Easy','#12A37C','#e6faf3'],2:['Medium','#2D7DFF','#e9f1ff'],3:['Hard','#E08A00','#fff4e0'],4:['Very hard','#E23B2C','#ffe9e6']})[d]||null;}
 function diffBadge(d){const x=diffMeta(d);return x?`<span class="badge" style="background:${x[2]};color:${x[1]}">${x[0]}</span>`:'';}
 function revealCap(d){return ({1:70,2:70,3:90,4:100})[d]||70;}
+function fmtTime(ts){if(!ts)return'';try{return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}catch(e){return'';}}
 function pname(id){const p=profiles[id];return p?p.name:'—';}
 function avaHTML(id,cls='ava'){const p=profiles[id]||{};const c=p.color||'#FF5B4C';
   return `<span class="${cls}" style="background:${c}">${p.emoji||'🎯'}</span>`;}
@@ -394,7 +395,7 @@ function renderSession(s){
         <span class="heatdot" style="background:${lc}"></span>
         <span class="lg-word">${last.word}</span>
         <span class="lg-rank" style="color:${lc}">#${last.rank}</span>
-        <span class="lg-by">${pname(last.player_id)}</span></div>`;
+        <span class="lg-by">${pname(last.player_id)} · ${fmtTime(last.created_at)}</span></div>`;
     }
     // ----- free-for-all input (everyone can guess; 20s personal cooldown) -----
     const myLast = openGuesses.filter(g=>g.player_id===me.id)
@@ -414,7 +415,7 @@ function renderSession(s){
       const gh=heatOf(g.rank),gc=heatColor(gh);
       return `<div class="tile" data-w="${g.word}">
         <span class="heatdot" style="background:${gc}"></span>
-        <div class="w">${g.word}<span class="by"> · ${pname(g.player_id)}</span></div>
+        <div class="w">${g.word}<span class="by"> · ${pname(g.player_id)} · ${fmtTime(g.created_at)}</span></div>
         <div class="meter"><i style="width:${Math.round(gh*100)}%;background:${gc}"></i></div>
         <div class="rk" style="color:${gc}">#${g.rank}</div></div>`;
     }).join('');
