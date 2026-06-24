@@ -10,16 +10,84 @@
     --coral:#FF5B4C; --coral-deep:#E23B2C; --blue:#2D7DFF; --yellow:#FFC93C;
     --mint:#22CFA0; --mint-deep:#12A37C;
     --ink:#241c1a; --ink-soft:#5b504c; --ink-faint:#9a8f8a;
-    --bg:#FFF8F0; --card:#ffffff; --line:#f0e6db;
+    --bg:#FFF8F0; --card:#ffffff; --surface-2:#ffffff; --line:#f0e6db;
     --radius:22px; --shadow-lg:0 18px 40px -16px rgba(80,40,20,.28);
     --shadow-sm:0 6px 18px -8px rgba(80,40,20,.25);
+    /* component tokens (so dark is a clean swap) */
+    --btn-bg:var(--ink); --btn-ink:#fff;
+    --toast-bg:var(--ink); --toast-ink:#fff;
+    --switch-bg:var(--ink); --switch-ink:#fff;
+    --input-bg:#ffffff; --input-ink:var(--ink); --input-bg-off:#eef1f5;
+    --field-bg:#ffffff;
+    --warn-bg:#fff7e6; --warn-border:#ffe0a3; --warn-ink:#9a6b00;
+    --badge-you-bg:#fff0ee; --badge-you-ink:var(--coral-deep);
+    --badge-wait-bg:#eef4ff; --badge-wait-ink:var(--blue);
+    --badge-solved-bg:#e6faf3; --badge-solved-ink:var(--mint-deep);
+    --locked-bg:#f6efe6; --locked-border:#e2d4c4;
+    --cooldown-grad:linear-gradient(120deg,#c9d2dc,#aeb8c4);
+    --body-bg:var(--bg);
+    --gem-shadow:0 20px 40px -18px rgba(18,22,40,.62), 0 2px 12px rgba(120,150,255,.20);
+    --glow-coral:0 0 0 rgba(0,0,0,0); --glow-mint:0 0 0 rgba(0,0,0,0); --glow-blue:0 0 0 rgba(0,0,0,0);
+  }
+  [data-theme="dark"]{
+    /* accents re-tuned brighter + more saturated so they pop on dark */
+    --coral:#FF6F5E; --coral-deep:#FF8C7B; --blue:#4D94FF; --yellow:#FFD24E;
+    --mint:#2BE3B0; --mint-deep:#37E0AD;
+    --ink:#ECEDF3; --ink-soft:#AEB3C2; --ink-faint:#7B8092;
+    /* layered cool charcoal surfaces — no pure black */
+    --bg:#0F1117; --card:#181B23; --surface-2:#23262F; --line:rgba(255,255,255,.09);
+    --shadow-lg:0 24px 50px -22px rgba(0,0,0,.75); --shadow-sm:0 10px 24px -14px rgba(0,0,0,.65);
+    --btn-bg:#0c0e13; --btn-ink:#ffffff;
+    --toast-bg:#262A35; --toast-ink:#F2F3F8;
+    --switch-bg:#23262F; --switch-ink:#EDEEF4;
+    --input-bg:#0d0f15; --input-ink:#EDEEF4; --input-bg-off:#2a2e38;
+    --field-bg:#181B23;
+    --warn-bg:rgba(255,201,60,.12); --warn-border:rgba(255,201,60,.34); --warn-ink:#FFD86A;
+    --badge-you-bg:rgba(255,111,94,.17); --badge-you-ink:#FF8C7B;
+    --badge-wait-bg:rgba(77,148,255,.17); --badge-wait-ink:#7FB2FF;
+    --badge-solved-bg:rgba(43,227,176,.16); --badge-solved-ink:#3FF0C0;
+    --locked-bg:rgba(255,255,255,.045); --locked-border:rgba(255,255,255,.14);
+    --cooldown-grad:linear-gradient(120deg,#2a2f3a,#21242d);
+    --gem-shadow:0 24px 46px -20px rgba(0,0,0,.7), 0 0 60px -22px rgba(120,150,255,.6);
+    --glow-coral:0 0 34px -8px rgba(255,111,94,.55);
+    --glow-mint:0 0 44px -12px rgba(43,227,176,.5);
+    --glow-blue:0 0 26px -8px rgba(77,148,255,.6);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     overscroll-behavior-y:none}
-  body{max-width:520px;margin:0 auto;padding:0 16px 40px;min-height:100vh}
+  body{max-width:520px;margin:0 auto;padding:0 16px 40px;min-height:100vh;
+    transition:background-color .4s ease, color .4s ease}
   button{font-family:inherit;cursor:pointer;border:none;background:none}
+  /* atmospheric dark field: ambient blooms + faint vignette */
+  [data-theme="dark"] body{
+    background:
+      radial-gradient(125% 80% at 50% -8%, #1c2436 0%, rgba(28,36,54,0) 55%),
+      radial-gradient(110% 60% at 100% 108%, #1d1733 0%, rgba(29,23,51,0) 60%),
+      var(--bg);
+    background-attachment:fixed;}
+  [data-theme="dark"] body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(130% 100% at 50% 50%, transparent 62%, rgba(0,0,0,.34) 100%)}
+  #app,#auth{position:relative;z-index:1}
+  /* smooth theme transition on the main surfaces */
+  .puzzle,.tile,.chip,.switch,.iconbtn,.lastguess,.hintbar,.locked-note,.badge,.pz-num,
+  .field,.toast,.gbtn,.guessrow input,.heatbar,.tile .meter{
+    transition:background-color .4s ease, color .4s ease, border-color .4s ease, box-shadow .4s ease}
+  /* accents that emit light in the dark */
+  [data-theme="dark"] .btn{box-shadow:0 10px 22px -10px var(--coral), var(--glow-coral)}
+  [data-theme="dark"] .guessrow{box-shadow:0 14px 30px -14px rgba(255,111,94,.45), var(--glow-coral)}
+  [data-theme="dark"] .guessrow:focus-within{box-shadow:0 16px 38px -12px rgba(255,111,94,.6), 0 0 0 4px rgba(255,210,78,.22), var(--glow-coral)}
+  [data-theme="dark"] .gbtn{box-shadow:0 0 22px -8px rgba(255,111,94,.7)}
+  [data-theme="dark"] .rally{box-shadow:var(--gem-shadow)}
+  [data-theme="dark"] .pz-num{box-shadow:var(--glow-blue)}
+  [data-theme="dark"] .solved-card{box-shadow:var(--shadow-lg), var(--glow-mint)}
+  [data-theme="dark"] .solved-card.reveal{box-shadow:var(--shadow-lg), 0 0 44px -12px rgba(139,124,224,.6)}
+  [data-theme="dark"] .tile.fresh{box-shadow:0 0 0 2px var(--coral), var(--glow-coral)}
+  .iconbtn{width:38px;height:38px;border-radius:999px;background:var(--card);border:1px solid var(--line);
+    display:grid;place-items:center;font-size:17px;flex:none;box-shadow:var(--shadow-sm);
+    transition:transform .12s ease, background-color .4s ease, box-shadow .4s ease}
+  .iconbtn:active{transform:scale(.9)}
   .hidden{display:none!important}
 
   /* top bar */
@@ -32,16 +100,17 @@
   .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
     border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px;color:var(--ink-soft);box-shadow:var(--shadow-sm)}
   .ava{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;color:#fff;flex:none}
-  .switch{background:var(--ink);color:#fff;border-radius:999px;padding:8px 13px;font-weight:800;font-size:13px;
+  .switch{background:var(--switch-bg);color:var(--switch-ink);border-radius:999px;padding:8px 13px;font-weight:800;font-size:13px;
     display:inline-flex;align-items:center;gap:6px;box-shadow:var(--shadow-sm)}
 
   /* auth */
   .auth-wrap{min-height:80vh;display:flex;flex-direction:column;justify-content:center;gap:18px;text-align:center;padding:0 6px}
   .auth-wrap h1{font-size:30px;margin:0;letter-spacing:-1px}
   .auth-wrap p{color:var(--ink-soft);margin:0 0 6px;line-height:1.5}
-  .field{width:100%;padding:16px;border-radius:16px;border:2px solid var(--line);background:#fff;
-    font-size:17px;text-align:center;font-weight:600;outline:none;transition:border-color .15s}
+  .field{width:100%;padding:16px;border-radius:16px;border:2px solid var(--line);background:var(--field-bg);
+    font-size:17px;text-align:center;font-weight:600;outline:none;color:var(--ink);transition:border-color .15s}
   .field:focus{border-color:var(--blue)}
+  .field::placeholder{color:var(--ink-faint)}
   .btn{width:100%;padding:16px;border-radius:16px;background:var(--coral);color:#fff;font-weight:800;font-size:17px;
     box-shadow:0 10px 22px -10px var(--coral);transition:transform .1s,opacity .15s}
   .btn:active{transform:scale(.97)} .btn[disabled]{opacity:.5}
@@ -65,9 +134,9 @@
   .pz-rank{font-weight:900;font-size:17px}
   .pz-rank small{font-weight:700;color:var(--ink-faint);font-size:11px;display:block}
   .badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;display:inline-block}
-  .badge.you{background:#fff0ee;color:var(--coral-deep)}
-  .badge.wait{background:#eef4ff;color:var(--blue)}
-  .badge.solved{background:#e6faf3;color:var(--mint-deep)}
+  .badge.you{background:var(--badge-you-bg);color:var(--badge-you-ink)}
+  .badge.wait{background:var(--badge-wait-bg);color:var(--badge-wait-ink)}
+  .badge.solved{background:var(--badge-solved-bg);color:var(--badge-solved-ink)}
   .heatbar{height:5px;border-radius:3px;background:var(--line);margin-top:9px;overflow:hidden}
   .heatbar>i{display:block;height:100%;border-radius:3px}
 
@@ -116,19 +185,19 @@
     box-shadow:0 14px 30px -14px rgba(255,91,76,.55), 0 2px 8px rgba(80,40,20,.10);
     transition:box-shadow .2s ease, transform .12s ease}
   .guessrow:focus-within{box-shadow:0 16px 36px -12px rgba(255,91,76,.75), 0 0 0 4px rgba(255,201,60,.28)}
-  .guessrow.cooldown{background:linear-gradient(120deg,#c9d2dc,#aeb8c4);box-shadow:none}
-  .guessrow input{flex:1;min-width:0;padding:15px 16px;border-radius:13px;border:none;background:#fff;
-    font-size:16px;font-weight:700;color:var(--ink);outline:none}
+  .guessrow.cooldown{background:var(--cooldown-grad);box-shadow:none}
+  .guessrow input{flex:1;min-width:0;padding:15px 16px;border-radius:13px;border:none;background:var(--input-bg);
+    font-size:16px;font-weight:700;color:var(--input-ink);outline:none}
   .guessrow input::placeholder{color:var(--ink-faint);font-weight:600}
-  .guessrow input:disabled{background:#eef1f5;color:var(--ink-faint)}
-  .gbtn{padding:0 22px;border-radius:13px;background:var(--ink);color:#fff;font-weight:800;font-size:16px;
+  .guessrow input:disabled{background:var(--input-bg-off);color:var(--ink-faint)}
+  .gbtn{padding:0 22px;border-radius:13px;background:var(--btn-bg);color:var(--btn-ink);font-weight:800;font-size:16px;
     letter-spacing:.2px;transition:transform .1s ease;min-width:74px}
   .gbtn:active{transform:scale(.95)}
   .guessrow.cooldown .gbtn{background:#7d8896;font-variant-numeric:tabular-nums}
   .ff-hint{text-align:center;color:var(--ink-faint);font-weight:700;font-size:12px;margin:0 0 16px}
   .pz-diffline{margin:0 0 10px}
   .hintbar{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:11px 14px;border-radius:14px;
-    background:#fff7e6;border:1.5px solid #ffe0a3;color:#9a6b00;font-weight:800;font-size:14px}
+    background:var(--warn-bg);border:1.5px solid var(--warn-border);color:var(--warn-ink);font-weight:800;font-size:14px}
   .hintbar span{font-weight:800}
 
   .glist-h{font-size:13px;font-weight:800;color:var(--ink-faint);margin:4px 2px 10px;text-transform:uppercase;letter-spacing:.4px}
@@ -149,12 +218,12 @@
   .solved-card .big{font-size:34px;font-weight:900;letter-spacing:-.5px;margin:6px 0}
   .solved-card .meta{font-weight:700;opacity:.95;font-size:14px}
   .solved-card.reveal{background:linear-gradient(135deg,#8B7CE0,#6b54d3)}
-  .locked-note{text-align:center;background:#f6efe6;color:var(--ink-soft);font-weight:800;font-size:13.5px;
-    padding:14px;border-radius:16px;border:1px dashed #e2d4c4;margin-top:4px}
+  .locked-note{text-align:center;background:var(--locked-bg);color:var(--ink-soft);font-weight:800;font-size:13.5px;
+    padding:14px;border-radius:16px;border:1px dashed var(--locked-border);margin-top:4px}
 
   /* toast */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;
-    background:var(--ink);color:#fff;padding:13px 20px;border-radius:999px;font-weight:800;font-size:14px;
+    background:var(--toast-bg);color:var(--toast-ink);padding:13px 20px;border-radius:999px;font-weight:800;font-size:14px;
     box-shadow:var(--shadow-lg);z-index:60;transition:.25s;pointer-events:none;max-width:90%;text-align:center}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
   .toast.turn{background:var(--coral)}
@@ -162,6 +231,15 @@
   .loading{text-align:center;color:var(--ink-faint);padding:40px;font-weight:700}
   .confetti{position:fixed;width:11px;height:14px;top:-20px;z-index:55;border-radius:2px;pointer-events:none}
 </style>
+<script>
+/* apply saved/system theme before first paint to avoid a flash */
+(function(){try{
+  var t=localStorage.getItem('bullseye-theme');
+  if(t!=='light'&&t!=='dark'){t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}
+  document.documentElement.setAttribute('data-theme',t);
+  var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',t==='dark'?'#0F1117':'#FFF8F0');
+}catch(e){}})();
+</script>
 </head>
 <body>
 
@@ -189,6 +267,7 @@
   <div class="top">
     <div class="logo"><span class="dot"></span>Bullseye</div>
     <div class="spacer"></div>
+    <button id="theme-btn" class="iconbtn" aria-label="Toggle dark mode">🌙</button>
     <a class="switch" href="index.html">🎯 Called It</a>
     <span id="me-chip" class="chip"><span id="me-ava" class="ava"></span><span id="me-name"></span></span>
   </div>
@@ -226,14 +305,49 @@ function toast(msg,kind=''){const t=$('#toast');t.textContent=msg;t.className='t
 function hex2rgb(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 function mix(c1,c2,t){const a=hex2rgb(c1),b=hex2rgb(c2);
   return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`;}
+
+/* ---------- theme (dark mode) ---------- */
+let isDark=false;
+const THEME_KEY='bullseye-theme';
+function applyTheme(t){
+  isDark = (t==='dark');
+  document.documentElement.setAttribute('data-theme', isDark?'dark':'light');
+  const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute('content', isDark?'#0F1117':'#FFF8F0');
+  const b=$('#theme-btn'); if(b) b.textContent = isDark?'☀️':'🌙';
+}
+function rerenderCurrent(){
+  try{
+    if(openId){const s=todaySessions.find(x=>x.id===openId); if(s) renderSession(s);}
+    else if(todaySessions.length) renderToday();
+  }catch(e){}
+}
+function toggleTheme(){
+  const t = isDark ? 'light' : 'dark';
+  try{localStorage.setItem(THEME_KEY,t);}catch(e){}
+  applyTheme(t);
+  rerenderCurrent();                       // re-bake JS-computed colours (heat, badges)
+  if(me){ try{ sb.from('profiles').update({theme:t}).eq('id',me.id).then(()=>{},()=>{}); }catch(e){} }
+}
+function initTheme(){
+  let t=document.documentElement.getAttribute('data-theme');
+  if(t!=='dark'&&t!=='light'){ try{t=localStorage.getItem(THEME_KEY);}catch(e){}
+    if(t!=='light'&&t!=='dark') t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'; }
+  applyTheme(t);
+  const b=$('#theme-btn'); if(b) b.onclick=toggleTheme;
+}
 // Honest heat: only the true neighbourhood (≈top 50) reads hot. The sqrt pulls
 // the mid-range down so a rank like #97 shows as a cool fringe, not "warm".
 function heatOf(rank){if(rank==null)return 0;if(rank<=1)return 1;
   const x=Math.log10(rank)/Math.log10(MAXR);
   return Math.max(0,Math.min(1,1-Math.sqrt(x)));}
-function heatColor(h){return h<0.5?mix('#2D7DFF','#FFC93C',h/0.5):mix('#FFC93C','#FF5B4C',(h-0.5)/0.5);}
+function heatColor(h){
+  const cold=isDark?'#4D94FF':'#2D7DFF', mid=isDark?'#FFD24E':'#FFC93C', hot=isDark?'#FF6F5E':'#FF5B4C';
+  return h<0.5?mix(cold,mid,h/0.5):mix(mid,hot,(h-0.5)/0.5);}
 function heatLabel(h){return h>=0.5?'🔥 On fire':h>=0.38?'♨️ Warm':h>=0.27?'🌤️ Getting there':h>=0.15?'❄️ Cold':'🧊 Freezing';}
-function diffMeta(d){return ({1:['Easy','#12A37C','#e6faf3'],2:['Medium','#2D7DFF','#e9f1ff'],3:['Hard','#E08A00','#fff4e0'],4:['Very hard','#E23B2C','#ffe9e6']})[d]||null;}
+function diffMeta(d){return (isDark
+  ? ({1:['Easy','#37E0AD','rgba(43,227,176,.16)'],2:['Medium','#7FB2FF','rgba(77,148,255,.16)'],3:['Hard','#FFC062','rgba(255,178,62,.16)'],4:['Very hard','#FF8C7B','rgba(255,111,94,.18)']})
+  : ({1:['Easy','#12A37C','#e6faf3'],2:['Medium','#2D7DFF','#e9f1ff'],3:['Hard','#E08A00','#fff4e0'],4:['Very hard','#E23B2C','#ffe9e6']})
+  )[d]||null;}
 function diffBadge(d){const x=diffMeta(d);return x?`<span class="badge" style="background:${x[2]};color:${x[1]}">${x[0]}</span>`:'';}
 function revealCap(d){return ({1:70,2:70,3:90,4:100})[d]||70;}
 function fmtTime(ts){if(!ts)return'';try{return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}catch(e){return'';}}
@@ -269,6 +383,9 @@ async function boot(){
   me=session.user;
   await loadProfiles();
   const mine=profiles[me.id]||{};
+  // adopt cross-device theme preference the first time on this device
+  try{ if(!localStorage.getItem(THEME_KEY) && (mine.theme==='dark'||mine.theme==='light')){
+    localStorage.setItem(THEME_KEY,mine.theme); applyTheme(mine.theme); } }catch(e){}
   $('#me-name').textContent=mine.name||'You';
   $('#me-ava').style.background=mine.color||'#FF5B4C';$('#me-ava').textContent=mine.emoji||'🎯';
   await loadToday();
@@ -276,7 +393,7 @@ async function boot(){
   if(!tick) tick=setInterval(onTick,1000);
 }
 async function loadProfiles(){
-  const {data}=await sb.from('profiles').select('id,name,color,emoji');
+  const {data}=await sb.from('profiles').select('id,name,color,emoji,theme');
   profiles={};(data||[]).forEach(p=>profiles[p.id]=p);
 }
 async function loadToday(){
@@ -302,7 +419,7 @@ function renderToday(){
     let badge,meta,numColor;
     if(s.status==='solved'){badge=`<span class="badge solved">✓ Solved</span>`;
       meta=`Cracked in ${s.guess_count} · ${pname(s.solved_by)}`;numColor='var(--mint)';}
-    else if(s.status==='revealed'){badge=`<span class="badge wait" style="background:#f1edff;color:#6b54d3">Revealed</span>`;
+    else if(s.status==='revealed'){badge=`<span class="badge wait" style="background:${isDark?'rgba(139,124,224,.18)':'#f1edff'};color:${isDark?'#bcacff':'#6b54d3'}">Revealed</span>`;
       meta=`Nobody got it in ${revealCap(s.difficulty)} — it was “${s.revealed_word}”`;numColor='#9a8f8a';}
     else{badge=`<span class="badge you">▶ Play now</span>`;
       meta=s.guess_count?`${s.guess_count} guesses so far`:'Be the first to guess';numColor='var(--blue)';}
@@ -322,7 +439,7 @@ function renderToday(){
   if(locked>0){
     html+=`<div class="locked-note">🔒 ${locked} more puzzle${locked>1?'s':''} unlock as you solve — one at a time</div>`;
   }else if(!current){
-    html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep)">🎉 All ${todaySessions.length} done — new puzzles at midnight!</div>`;
+    html+=`<div class="locked-note" style="background:${isDark?'rgba(43,227,176,.13)':'#e6faf3'};color:var(--mint-deep)">🎉 All ${todaySessions.length} done — new puzzles at midnight!</div>`;
   }
   list.innerHTML=html;
 }
@@ -365,7 +482,7 @@ function renderSession(s){
     }
     const next=todaySessions.find(x=>x.status==='open');
     if(next) html+=`<button class="btn" id="next-pz" style="margin-bottom:16px">Next puzzle →</button>`;
-    else html+=`<div class="locked-note" style="background:#e6faf3;color:var(--mint-deep);margin-bottom:16px">🎉 That’s all 5 for today — fresh puzzles at midnight!</div>`;
+    else html+=`<div class="locked-note" style="background:${isDark?'rgba(43,227,176,.13)':'#e6faf3'};color:var(--mint-deep);margin-bottom:16px">🎉 That’s all 5 for today — fresh puzzles at midnight!</div>`;
   }else{
     if(s.difficulty){ html+=`<div class="pz-diffline">${diffBadge(s.difficulty)}</div>`; }
     // ----- closest-so-far : the gem -----
@@ -499,6 +616,7 @@ function burst(){const cs=['#FF5B4C','#2D7DFF','#FFC93C','#22CFA0'];
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&me){loadToday();if(openId)loadGuesses();}});
 window.addEventListener('online',()=>{if(me)loadToday();});
 sb.auth.onAuthStateChange((e)=>{if(e==='SIGNED_IN'&&$('#app').classList.contains('hidden'))boot();});
+initTheme();
 boot();
 window.openSession=openSession;
 </script>
