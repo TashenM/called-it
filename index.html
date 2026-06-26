@@ -31,6 +31,32 @@
   --bg:#FBF7F2;           /* warm off-white app background */
   --card:#FFFFFF;
 
+  /* ---- themeable component tokens (overridden in [data-theme="dark"]) ---- */
+  --card-border:rgba(239,234,227,.7);
+  --fill:#F7F4EF;            /* secondary fills: chips, consensus */
+  --fill-track:#E7E2DA;      /* progress track */
+  --field-bg:#FFFFFF;
+  --btn-bg:var(--ink);       /* default solid button */
+  --btn-ink:#FFFFFF;
+  --ghost-bg:#FFFFFF;
+  --ghost-ink:var(--ink);
+  --toast-bg:var(--ink);
+  --toast-ink:#FFFFFF;
+  --grip:#D8D2C8;
+  --pill-grey-bg:#F1EEE9;
+  --pill-grey-ink:var(--ink-soft);
+  --xbtn-bg:#F4F1EC;
+  --tabs-bg:#F0F0F5;
+  --tab-on-bg:#FFFFFF;
+  --nav-bg:rgba(255,255,255,.92);
+  --lb-first-grad:linear-gradient(135deg,#FFF8E8,#FFFDF6);
+  --lb-first-border:rgba(255,201,60,.55);
+  --title-bg:rgba(255,201,60,.22);
+  --title-ink:#B5860A;
+  --auth-grad:linear-gradient(160deg,#FFF3EF 0%, #EAF2FF 55%, #E9FBF4 100%);
+  --auth-card:#FFFFFF;
+  --auth-input-border:#ECECF1;
+
   --radius:22px;
   --radius-sm:14px;
   --radius-pill:999px;
@@ -135,7 +161,7 @@ main{
 .card{
   background:var(--card); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:16px; margin-bottom:14px;
-  border:1px solid rgba(239,234,227,.7);
+  border:1px solid var(--card-border);
 }
 .row{display:flex; align-items:center; gap:10px;}
 .spread{justify-content:space-between;}
@@ -159,7 +185,7 @@ main{
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
   min-height:52px; padding:0 20px; border-radius:var(--radius-pill);
   font-weight:800; font-size:16px; letter-spacing:-.01em;
-  background:var(--ink); color:#fff;
+  background:var(--btn-bg); color:var(--btn-ink);
   transition:transform .12s ease, box-shadow .15s ease, opacity .15s;
   box-shadow:0 6px 14px rgba(34,38,64,.18);
   width:100%;
@@ -169,8 +195,9 @@ main{
 .btn.coral{background:linear-gradient(135deg,var(--coral),var(--coral-deep)); box-shadow:0 8px 18px rgba(255,91,76,.32);}
 .btn.blue{background:linear-gradient(135deg,#3F88FF,var(--blue)); box-shadow:0 8px 18px rgba(45,125,255,.3);}
 .btn.mint{background:linear-gradient(135deg,var(--mint),var(--mint-deep)); box-shadow:0 8px 18px rgba(34,207,160,.3);}
-.btn.ghost{background:#fff; color:var(--ink); box-shadow:none; border:1.5px solid var(--line);}
+.btn.ghost{background:var(--ghost-bg); color:var(--ghost-ink); box-shadow:none; border:1.5px solid var(--line);}
 .btn.danger{background:linear-gradient(135deg,#FF6B6B,#E23A3A); box-shadow:0 8px 18px rgba(226,58,58,.28);}
+.btn.coral,.btn.blue,.btn.mint,.btn.danger{color:#fff;}
 .btn.sm{min-height:42px; font-size:14px; padding:0 16px; width:auto;}
 .btn.tiny-btn{min-height:38px; font-size:13px; padding:0 14px; width:auto;}
 
@@ -186,7 +213,7 @@ main{
 }
 .pill.warn{background:rgba(255,154,60,.14); color:#D9791E;}
 .pill.live{background:rgba(34,207,160,.14); color:var(--mint-deep);}
-.pill.grey{background:#F1EEE9; color:var(--ink-soft);}
+.pill.grey{background:var(--pill-grey-bg); color:var(--pill-grey-ink);}
 
 /* Empty states */
 .empty{
@@ -204,16 +231,16 @@ main{
 .callers{display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
 .caller-chip{
   display:flex; align-items:center; gap:6px;
-  background:#F7F4EF; border-radius:var(--radius-pill); padding:4px 10px 4px 4px;
+  background:var(--fill); border-radius:var(--radius-pill); padding:4px 10px 4px 4px;
   font-size:12.5px; font-weight:700;
 }
 .caller-chip .sidedot{width:16px; height:16px; border-radius:50%; display:grid; place-items:center; font-size:10px; color:#fff; font-weight:900;}
 .consensus{
   font-size:13px; font-weight:700; color:var(--ink-soft);
-  background:#F7F4EF; border-radius:12px; padding:9px 12px; margin-bottom:12px;
+  background:var(--fill); border-radius:12px; padding:9px 12px; margin-bottom:12px;
   display:flex; align-items:center; gap:8px;
 }
-.cbar{flex:1; height:8px; border-radius:6px; background:#E7E2DA; overflow:hidden; position:relative;}
+.cbar{flex:1; height:8px; border-radius:6px; background:var(--fill-track); overflow:hidden; position:relative;}
 .cbar > span{position:absolute; inset:0 auto 0 0; border-radius:6px;
   background:linear-gradient(90deg,var(--mint),var(--blue)); transition:width .5s cubic-bezier(.2,.8,.2,1);}
 .pred-actions{display:flex; gap:10px;}
@@ -223,7 +250,7 @@ main{
 .card.pred.inprog{
   border:1.5px dashed var(--blue);
   box-shadow:0 0 0 4px rgba(45,125,255,.08), 0 10px 24px -16px rgba(45,125,255,.5);
-  background:linear-gradient(#fff,#fff) padding-box,
+  background:linear-gradient(var(--card),var(--card)) padding-box,
              linear-gradient(120deg, rgba(45,125,255,.10), rgba(34,207,160,.10)) border-box;
 }
 .inprog-note{
@@ -264,12 +291,12 @@ main{
 .lb-row{
   display:flex; align-items:center; gap:12px; padding:13px 14px;
   background:var(--card); border-radius:var(--radius); margin-bottom:10px;
-  box-shadow:var(--shadow); border:1px solid rgba(239,234,227,.7);
+  box-shadow:var(--shadow); border:1px solid var(--card-border);
   position:relative; overflow:hidden;
 }
 .lb-row.first{
-  background:linear-gradient(135deg,#FFF8E8,#FFFDF6);
-  border:1.5px solid rgba(255,201,60,.55);
+  background:var(--lb-first-grad);
+  border:1.5px solid var(--lb-first-border);
   box-shadow:0 10px 26px rgba(255,184,0,.18);
 }
 .lb-rank{width:26px; text-align:center; font-weight:900; font-size:17px; color:var(--ink-faint); flex:none;}
@@ -277,7 +304,7 @@ main{
 .lb-main{flex:1; min-width:0;}
 .lb-name{font-weight:800; font-size:16px; letter-spacing:-.01em; display:flex; align-items:center; gap:7px;}
 .lb-name .title{font-size:11px; font-weight:900; padding:3px 8px; border-radius:var(--radius-pill);
-  background:rgba(255,201,60,.22); color:#B5860A; letter-spacing:.01em;}
+  background:var(--title-bg); color:var(--title-ink); letter-spacing:.01em;}
 .lb-stats{font-size:12.5px; color:var(--ink-soft); font-weight:600; margin-top:2px;}
 .lb-score{font-size:23px; font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:-.02em; text-align:right;}
 .lb-score.pos{color:var(--mint-deep);} .lb-score.neg{color:var(--coral-deep);} .lb-score.neu{color:var(--ink-faint);}
@@ -301,12 +328,12 @@ main{
 .crew-row{
   display:flex; align-items:center; gap:12px; padding:11px 13px;
   background:var(--card); border-radius:var(--radius-sm); margin-bottom:9px;
-  box-shadow:var(--shadow); border:1px solid rgba(239,234,227,.7);
+  box-shadow:var(--shadow); border:1px solid var(--card-border);
 }
 .crew-row .nm{flex:1; font-weight:800; font-size:16px;}
 .crew-row .sc{font-size:13px; font-weight:700; color:var(--ink-soft);}
 .x-btn{width:36px; height:36px; border-radius:11px; flex:none; display:grid; place-items:center;
-  font-size:18px; color:var(--ink-faint); background:#F4F1EC; transition:transform .12s, background .15s, color .15s;}
+  font-size:18px; color:var(--ink-faint); background:var(--xbtn-bg); transition:transform .12s, background .15s, color .15s;}
 .x-btn:active{transform:scale(.88); background:#FFE4E1; color:var(--coral-deep);}
 
 /* =========================================================================
@@ -317,7 +344,7 @@ nav{
   max-width:560px; margin:0 auto;
   height:calc(var(--nav-h) + var(--safe-bottom));
   padding-bottom:var(--safe-bottom);
-  background:rgba(255,255,255,.92);
+  background:var(--nav-bg);
   backdrop-filter:saturate(180%) blur(14px); -webkit-backdrop-filter:saturate(180%) blur(14px);
   border-top:1px solid var(--line);
   display:flex; align-items:stretch;
@@ -351,7 +378,7 @@ nav{
   padding-bottom:var(--safe-bottom);
 }
 #sheet.show{transform:translateY(0);}
-.sheet-grip{width:40px; height:5px; border-radius:3px; background:#D8D2C8; margin:10px auto 2px;}
+.sheet-grip{width:40px; height:5px; border-radius:3px; background:var(--grip); margin:10px auto 2px;}
 .sheet-body{overflow-y:auto; -webkit-overflow-scrolling:touch; padding:8px 18px 22px;}
 .sheet-title{font-size:21px; font-weight:900; letter-spacing:-.02em; margin:6px 2px 4px;}
 .sheet-sub{font-size:13.5px; color:var(--ink-soft); font-weight:600; margin:0 2px 16px;}
@@ -360,7 +387,7 @@ nav{
 label.fl{display:block; font-size:13px; font-weight:800; color:var(--ink-soft); margin:0 2px 7px;}
 .field{
   width:100%; min-height:54px; padding:14px 16px; font-size:16px; font-weight:600;
-  background:#fff; border:1.5px solid var(--line); border-radius:16px; color:var(--ink);
+  background:var(--field-bg); border:1.5px solid var(--line); border-radius:16px; color:var(--ink);
   margin-bottom:16px; transition:border-color .15s, box-shadow .15s;
 }
 .field:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 4px rgba(45,125,255,.13);}
@@ -370,7 +397,7 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 .chip-wrap{display:flex; flex-wrap:wrap; gap:9px; margin-bottom:18px;}
 .pchip{
   display:flex; align-items:center; gap:8px; padding:7px 14px 7px 7px;
-  border-radius:var(--radius-pill); background:#fff; border:1.5px solid var(--line);
+  border-radius:var(--radius-pill); background:var(--field-bg); border:1.5px solid var(--line);
   font-weight:800; font-size:14.5px; transition:transform .12s, border-color .15s, box-shadow .15s;
 }
 .pchip:active{transform:scale(.95);}
@@ -380,7 +407,7 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 /* YES / NO toggle */
 .yn{display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-bottom:20px;}
 .yn button{
-  min-height:64px; border-radius:18px; border:2px solid var(--line); background:#fff;
+  min-height:64px; border-radius:18px; border:2px solid var(--line); background:var(--field-bg);
   font-weight:900; font-size:16px; display:flex; flex-direction:column; gap:2px; align-items:center; justify-content:center;
   transition:transform .12s, border-color .15s, background .15s, color .15s;
 }
@@ -396,7 +423,7 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 .conf-mood{font-size:13.5px; font-weight:800; transition:color .2s;}
 .conf-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:7px; margin-bottom:8px;}
 .conf-grid button{
-  min-height:54px; border-radius:14px; border:2px solid var(--line); background:#fff;
+  min-height:54px; border-radius:14px; border:2px solid var(--line); background:var(--field-bg);
   font-weight:900; font-size:15px; color:var(--ink-soft);
   transition:transform .12s, border-color .15s, background .15s, color .15s;
 }
@@ -422,7 +449,7 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 .set-item .si-d{font-size:12.5px; color:var(--ink-soft); font-weight:600;}
 .set-item .chev{color:var(--ink-faint); font-size:20px; font-weight:800;}
 
-.explain{background:#fff; border:1px solid var(--line); border-radius:18px; padding:16px; margin-bottom:16px;}
+.explain{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px; margin-bottom:16px;}
 .explain h4{margin:0 0 8px; font-size:15px; font-weight:900;}
 .explain p{margin:0 0 10px; font-size:13.5px; color:var(--ink-soft); font-weight:600; line-height:1.5;}
 .explain .ex-row{display:flex; justify-content:space-between; font-size:13px; font-weight:700; padding:6px 0; border-top:1px dashed var(--line);}
@@ -438,7 +465,7 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 #toast-wrap{position:fixed; left:0; right:0; bottom:calc(var(--nav-h) + var(--safe-bottom) + 14px);
   z-index:60; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; padding:0 16px;}
 .toast{
-  background:var(--ink); color:#fff; font-weight:800; font-size:14.5px;
+  background:var(--toast-bg); color:var(--toast-ink); font-weight:800; font-size:14.5px;
   padding:12px 18px; border-radius:var(--radius-pill); box-shadow:var(--shadow-lg);
   transform:translateY(20px); opacity:0; animation:toastIn .3s forwards;
   max-width:100%;
@@ -450,11 +477,81 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 
 #confetti{position:fixed; inset:0; z-index:70; pointer-events:none;}
 
+/* =========================================================================
+   DARK MODE — token overrides + atmosphere. Header stays coral (brand anchor).
+   ========================================================================= */
+[data-theme="dark"]{
+  --coral:#FF6F5E;  --coral-deep:#FF8A78;
+  --blue:#4D94FF;
+  --yellow:#FFD24E;
+  --mint:#2BE3B0;   --mint-deep:#23C79C;
+  --purple:#A78BFA; --pink:#FF7FB0; --orange:#FF9A3C;
+
+  --ink:#ECEFF6;    --ink-soft:#A4ADC2; --ink-faint:#6C7589;
+  --line:#272D3A;
+  --bg:#0F1117;     --card:#181C26;
+
+  --card-border:rgba(255,255,255,.06);
+  --fill:#222734;       --fill-track:#2B3140;
+  --field-bg:#1C212C;
+  --btn-bg:#ECEFF6;     --btn-ink:#10131A;
+  --ghost-bg:#1C212C;   --ghost-ink:var(--ink);
+  --toast-bg:#242A38;   --toast-ink:#ECEFF6;
+  --grip:#3A4150;
+  --pill-grey-bg:#222734; --pill-grey-ink:#A4ADC2;
+  --xbtn-bg:#222734;
+  --tabs-bg:#13161E;    --tab-on-bg:#2A3140;
+  --nav-bg:rgba(15,17,23,.9);
+  --lb-first-grad:linear-gradient(135deg,#2A2512,#1A1C25);
+  --lb-first-border:rgba(255,210,78,.4);
+  --title-bg:rgba(255,210,78,.16); --title-ink:#FFD98A;
+  --auth-grad:radial-gradient(120% 85% at 50% -10%, #1b2233 0%, #0F1117 62%);
+  --auth-card:#181C26;  --auth-input-border:#272D3A;
+
+  --shadow:0 8px 22px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.35);
+  --shadow-lg:0 18px 46px rgba(0,0,0,.62), 0 4px 12px rgba(0,0,0,.42);
+}
+/* ambient accent blooms + vignette behind the app */
+[data-theme="dark"] body{
+  background:var(--bg);
+  background-image:
+    radial-gradient(1100px 520px at 110% -8%, rgba(255,111,94,.12), transparent 60%),
+    radial-gradient(950px 480px at -12% 6%, rgba(77,148,255,.11), transparent 55%),
+    radial-gradient(820px 540px at 50% 122%, rgba(43,227,176,.09), transparent 60%),
+    radial-gradient(150% 130% at 50% 0%, transparent 58%, rgba(0,0,0,.5) 100%);
+  background-attachment:fixed;
+}
+/* deepen shadows + accent glow halos on the bright moments */
+[data-theme="dark"] header{box-shadow:0 8px 26px rgba(0,0,0,.55);}
+[data-theme="dark"] .card{box-shadow:0 12px 30px -14px rgba(0,0,0,.65);}
+[data-theme="dark"] .btn.coral{box-shadow:0 10px 26px -6px rgba(255,111,94,.5);}
+[data-theme="dark"] .btn.blue{box-shadow:0 10px 26px -6px rgba(77,148,255,.45);}
+[data-theme="dark"] .btn.mint{box-shadow:0 10px 26px -6px rgba(43,227,176,.45);}
+[data-theme="dark"] .champ,[data-theme="dark"] .daily-call{box-shadow:0 16px 38px -14px rgba(0,0,0,.7);}
+[data-theme="dark"] .field:focus{box-shadow:0 0 0 4px rgba(77,148,255,.22);}
+/* smooth the swap on the big surfaces (interaction transitions left intact) */
+body,.card,.lb-row,.crew-row,nav{
+  transition:background-color .4s ease, color .4s ease, border-color .4s ease;
+}
+
 /* Reduced motion: keep it calm */
 @media (prefers-reduced-motion: reduce){
   *{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important;}
 }
 </style>
+<script>
+/* Set the theme BEFORE first paint to avoid a flash. Falls back to the Bullseye
+   key (same origin) so the theme carries across both games, then system pref. */
+(function(){
+  try{
+    var t = localStorage.getItem('callit-theme') || localStorage.getItem('bullseye-theme');
+    if(t!=='dark' && t!=='light'){
+      t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+  }catch(e){}
+})();
+</script>
 </head>
 <body>
 <div id="app">
@@ -468,6 +565,7 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
     </div>
     <div class="hdr-actions">
       <a class="game-switch" href="bullseye.html" aria-label="Play Bullseye">🎯 Bullseye</a>
+      <button class="icon-btn" data-action="toggle-theme" id="theme-btn" aria-label="Toggle dark mode">🌙</button>
       <button class="icon-btn" data-action="open-settings" aria-label="Settings">⚙️</button>
     </div>
   </header>
@@ -507,9 +605,9 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
   align-items:center; justify-content:center; padding:28px;
   padding-top:calc(28px + env(safe-area-inset-top));
   padding-bottom:calc(28px + env(safe-area-inset-bottom));
-  background:linear-gradient(160deg,#FFF3EF 0%, #EAF2FF 55%, #E9FBF4 100%);}
+  background:var(--auth-grad);}
 #auth.show{display:flex;}
-#auth .auth-card{width:100%; max-width:380px; background:#fff; border-radius:26px;
+#auth .auth-card{width:100%; max-width:380px; background:var(--auth-card); border-radius:26px;
   box-shadow:var(--shadow-lg); padding:26px 22px 22px; text-align:center;}
 #auth .auth-logo{width:62px; height:62px; border-radius:20px; margin:0 auto 14px;
   display:grid; place-items:center; font-size:32px;
@@ -518,8 +616,9 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 #auth .sub{color:var(--ink-soft); font-size:14.5px; line-height:1.45; margin:0 0 20px;}
 #auth label{display:block; text-align:left; font-weight:800; font-size:13px;
   color:var(--ink-soft); margin:0 0 7px 4px;}
-#auth input{width:100%; box-sizing:border-box; border:2px solid #ECECF1; border-radius:16px;
-  padding:15px 16px; font:inherit; font-size:16px; font-weight:600; outline:none; transition:border-color .15s;}
+#auth input{width:100%; box-sizing:border-box; border:2px solid var(--auth-input-border); border-radius:16px;
+  padding:15px 16px; font:inherit; font-size:16px; font-weight:600; outline:none; transition:border-color .15s;
+  background:var(--field-bg); color:var(--ink);}
 #auth input:focus{border-color:var(--coral);}
 #auth .code-in{text-align:center; letter-spacing:.3em; font-size:23px; font-weight:800; padding-left:.3em;}
 #auth button.go{width:100%; margin-top:16px; border:none; border-radius:16px; padding:15px;
@@ -536,11 +635,11 @@ textarea.field{resize:none; line-height:1.4; min-height:84px;}
 .auth-step{display:none;} .auth-step.on{display:block;}
 
 /* ===== Leaderboard: window tabs + champion spotlight ===== */
-.lb-tabs{display:flex; gap:6px; background:#F0F0F5; border-radius:14px; padding:5px; margin:0 0 16px;}
+.lb-tabs{display:flex; gap:6px; background:var(--tabs-bg); border-radius:14px; padding:5px; margin:0 0 16px;}
 .lb-tabs button{flex:1; border:none; background:transparent; font:inherit; font-weight:800;
   font-size:13px; color:var(--ink-soft); padding:9px 4px; border-radius:10px; cursor:pointer;
   transition:background .18s, color .18s, box-shadow .18s;}
-.lb-tabs button.on{background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(0,0,0,.09);}
+.lb-tabs button.on{background:var(--tab-on-bg); color:var(--ink); box-shadow:0 2px 8px rgba(0,0,0,.09);}
 .champ{position:relative; overflow:hidden; border-radius:22px; padding:18px 20px; margin-bottom:14px;
   color:#fff; background:linear-gradient(135deg,#FFC93C,#FF9A3C); box-shadow:0 12px 26px rgba(255,154,60,.34);}
 .champ.week{background:linear-gradient(135deg,#8B5CF6,#6366F1); box-shadow:0 12px 26px rgba(99,102,241,.32);}
@@ -979,7 +1078,7 @@ function predictionCard(p){
     actions += `<button class="btn ghost" data-action="open-call" data-pred="${p.id}">📣 Make your call</button>`;
   }
   if(isAdmin){
-    actions += `<button class="btn" data-action="open-resolve" data-pred="${p.id}" style="background:#fff;border:1.5px solid var(--coral);color:var(--coral-deep);font-weight:800">🛠️ Admin resolve</button>`;
+    actions += `<button class="btn" data-action="open-resolve" data-pred="${p.id}" style="background:var(--ghost-bg);border:1.5px solid var(--coral);color:var(--coral-deep);font-weight:800">🛠️ Admin resolve</button>`;
   } else if(canResolve){
     actions += `<button class="btn mint" data-action="open-resolve" data-pred="${p.id}">✅ Resolve</button>`;
   } else if(closed && confirmed && (iCreated || mineCall)){
@@ -1169,7 +1268,7 @@ function resolvedCard(p){
     return `<div class="card" style="opacity:.78">
       <div class="row spread" style="align-items:flex-start; margin-bottom:6px">
         <div class="statement" style="flex:1; margin:0">${p.source==="daily"?'⭐ ':''}${esc(p.text)}</div>
-        <span class="stamp" style="background:#E6E6EC; color:var(--ink-soft)">${exp?'EXPIRED':'NO CONTEST'}</span>
+        <span class="stamp" style="background:var(--pill-grey-bg); color:var(--pill-grey-ink)">${exp?'EXPIRED':'NO CONTEST'}</span>
       </div>
       <div class="tiny muted">${exp?'Didn’t reach 3 players before closing — no points awarded.':'Voided — no points awarded.'}</div>
     </div>`;
@@ -1578,6 +1677,13 @@ function sheetSettings(){
       <div class="chev">›</div>
     </div>` : ""}
 
+    <div class="set-item" data-action="toggle-theme">
+      <div class="si-ico" style="background:linear-gradient(135deg,var(--purple),var(--blue))">🌗</div>
+      <div class="si-main"><div class="si-t">Appearance</div>
+        <div class="si-d" id="theme-sub">${isDark ? "Dark mode is on" : "Light mode is on"}</div></div>
+      <div class="chev">›</div>
+    </div>
+
     <div class="explain">
       <h4>How scoring works 🎯</h4>
       <p>Everyone picks <b>will / won't happen</b> and how sure they are (50–100%). The surer you are, the more you can win — or lose.</p>
@@ -1727,6 +1833,43 @@ function countUp(node, to){
 /* =========================================================================
    Event delegation — one listener to rule them all
    ========================================================================= */
+/* =========================================================================
+   Theme (light / dark). The no-flash head script sets the initial state;
+   this syncs the toggle glyph, persists locally, and best-effort writes the
+   preference to profiles.theme so it follows the player across devices.
+   ========================================================================= */
+const THEME_KEY = "callit-theme";
+let isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+function applyTheme(mode){
+  isDark = (mode === "dark");
+  document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+  const b = document.getElementById("theme-btn");
+  if(b){ b.textContent = isDark ? "☀️" : "🌙"; b.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode"); }
+  const sub = document.getElementById("theme-sub");
+  if(sub){ sub.textContent = isDark ? "Dark mode is on" : "Light mode is on"; }
+}
+function toggleTheme(){
+  applyTheme(isDark ? "light" : "dark");
+  try{ localStorage.setItem(THEME_KEY, isDark ? "dark" : "light"); }catch(e){}
+  if(ME){ sb.from("profiles").update({ theme: isDark ? "dark" : "light" }).eq("id", ME).then(()=>{}, ()=>{}); }
+  toast(isDark ? "Dark mode on 🌙" : "Light mode on ☀️");
+}
+function initTheme(){ applyTheme(isDark ? "dark" : "light"); }   // reflect head-script choice onto the UI
+// On first run on this device (no local choice yet), adopt the account's saved theme.
+async function adoptProfileTheme(){
+  try{
+    if(localStorage.getItem(THEME_KEY)) return;
+    if(!ME) return;
+    const { data } = await sb.from("profiles").select("theme").eq("id", ME).maybeSingle();
+    if(data && (data.theme === "dark" || data.theme === "light")){
+      applyTheme(data.theme);
+      try{ localStorage.setItem(THEME_KEY, data.theme); }catch(e){}
+    }
+  }catch(e){}
+}
+initTheme();
+
 document.addEventListener("click", (e) => {
   const target = e.target.closest("[data-action]");
   if(!target) return;
@@ -1737,6 +1880,7 @@ document.addEventListener("click", (e) => {
       tab = target.dataset.tab; render(); break;
 
     case "open-settings": sheetSettings(); break;
+    case "toggle-theme": toggleTheme(); break;
     case "close-sheet": closeSheet(); break;
 
     /* Profile look shuffle (in the edit-profile sheet) */
@@ -1843,6 +1987,7 @@ async function startApp(session){
     for(let i=0;i<5 && !getPlayer(ME);i++){ await new Promise(r=>setTimeout(r,400)); await refresh(); }
   }
   booted = true;
+  adoptProfileTheme();
   bindRealtime();
   startDailyTick();
   tab = "predict";
