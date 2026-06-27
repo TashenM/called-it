@@ -234,7 +234,7 @@
 <script>
 /* apply saved/system theme before first paint to avoid a flash */
 (function(){try{
-  var t=localStorage.getItem('bullseye-theme');
+  var t=localStorage.getItem('app-theme')||localStorage.getItem('bullseye-theme');
   if(t!=='light'&&t!=='dark'){t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}
   document.documentElement.setAttribute('data-theme',t);
   var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',t==='dark'?'#0F1117':'#FFF8F0');
@@ -308,7 +308,10 @@ function mix(c1,c2,t){const a=hex2rgb(c1),b=hex2rgb(c2);
 
 /* ---------- theme (dark mode) ---------- */
 let isDark=false;
-const THEME_KEY='bullseye-theme';
+const THEME_KEY='app-theme';                 // shared across Bullseye + Called It (same origin)
+function storedTheme(){
+  try{ return localStorage.getItem('app-theme')||localStorage.getItem('bullseye-theme'); }catch(e){ return null; }
+}
 function applyTheme(t){
   isDark = (t==='dark');
   document.documentElement.setAttribute('data-theme', isDark?'dark':'light');
@@ -328,9 +331,13 @@ function toggleTheme(){
   rerenderCurrent();                       // re-bake JS-computed colours (heat, badges)
   if(me){ try{ sb.from('profiles').update({theme:t}).eq('id',me.id).then(()=>{},()=>{}); }catch(e){} }
 }
+// Stay in sync if the theme is changed in Called It (or another tab).
+window.addEventListener('storage', e=>{
+  if(e.key==='app-theme' && (e.newValue==='dark'||e.newValue==='light')){ applyTheme(e.newValue); rerenderCurrent(); }
+});
 function initTheme(){
   let t=document.documentElement.getAttribute('data-theme');
-  if(t!=='dark'&&t!=='light'){ try{t=localStorage.getItem(THEME_KEY);}catch(e){}
+  if(t!=='dark'&&t!=='light'){ t=storedTheme();
     if(t!=='light'&&t!=='dark') t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'; }
   applyTheme(t);
   const b=$('#theme-btn'); if(b) b.onclick=toggleTheme;
@@ -384,8 +391,8 @@ async function boot(){
   await loadProfiles();
   const mine=profiles[me.id]||{};
   // adopt cross-device theme preference the first time on this device
-  try{ if(!localStorage.getItem(THEME_KEY) && (mine.theme==='dark'||mine.theme==='light')){
-    localStorage.setItem(THEME_KEY,mine.theme); applyTheme(mine.theme); } }catch(e){}
+  try{ if(!storedTheme() && (mine.theme==='dark'||mine.theme==='light')){
+    localStorage.setItem(THEME_KEY,mine.theme); applyTheme(mine.theme); rerenderCurrent(); } }catch(e){}
   $('#me-name').textContent=mine.name||'You';
   $('#me-ava').style.background=mine.color||'#FF5B4C';$('#me-ava').textContent=mine.emoji||'🎯';
   await loadToday();

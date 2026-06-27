@@ -246,7 +246,7 @@ main{
 .pred-actions{display:flex; gap:10px;}
 .pred-actions .btn{flex:1;}
 
-/* In-progress (under 3 players) — a clean accent frame to signal "not yet valid" */
+/* In-progress (under 2 players) — a clean accent frame to signal "not yet valid" */
 .card.pred.inprog{
   border:1.5px dashed var(--blue);
   box-shadow:0 0 0 4px rgba(45,125,255,.08), 0 10px 24px -16px rgba(45,125,255,.5);
@@ -540,11 +540,12 @@ body,.card,.lb-row,.crew-row,nav{
 }
 </style>
 <script>
-/* Set the theme BEFORE first paint to avoid a flash. Falls back to the Bullseye
-   key (same origin) so the theme carries across both games, then system pref. */
+/* Set the theme BEFORE first paint to avoid a flash. Shared 'app-theme' key
+   keeps Called It + Bullseye in lockstep (same origin); legacy keys are a
+   fallback, then system preference. */
 (function(){
   try{
-    var t = localStorage.getItem('callit-theme') || localStorage.getItem('bullseye-theme');
+    var t = localStorage.getItem('app-theme') || localStorage.getItem('callit-theme') || localStorage.getItem('bullseye-theme');
     if(t!=='dark' && t!=='light'){
       t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
@@ -909,6 +910,32 @@ function scoreCall(call, outcomeTrue){
   return Math.round((0.25 - brier) * 100);        // −75…+25
 }
 
+// Auto calls (Daily Call + anything posted by the app/API) aren't "manual".
+function isAuto(p){ return (p.source || "manual") !== "manual"; }
+
+// Stakes + whether a prediction's points count toward the board.
+//  • User calls: need ≥2 players; stakes scale with the crowd ((n−1)/2, capped 3×),
+//    so 2 players = ×0.5 (abuse-proof), 3 = ×1, 5 = ×2, 7+ = ×3.
+//  • Auto calls: always count, no crowd rule; wins ×3, misses ×2 — full points even solo.
+const STAKE_CAP = 3;
+function callerCount(p){ return p.calls ? p.calls.length : (p.callCount || 0); }
+function predStakes(p){
+  const n = callerCount(p);
+  if(isAuto(p)) return { counts:true, gain:3, loss:2, auto:true, n };
+  if(n < 2)     return { counts:false, gain:0, loss:0, auto:false, n };
+  const m = Math.max(0.5, Math.min(STAKE_CAP, (n - 1) / 2));
+  return { counts:true, gain:m, loss:m, auto:false, n };
+}
+function stakeMult(p){ const m = predStakes(p).gain; return Math.round(m * 10) / 10; }
+
+// Final awarded points for one call on a resolved prediction (after stakes/boost).
+function pointsFor(call, p){
+  const st = predStakes(p);
+  if(!st.counts) return 0;
+  const base = scoreCall(call, p.outcome);
+  return Math.round(base * (base >= 0 ? st.gain : st.loss));
+}
+
 // Aggregate resolved predictions into per-player stats + fun leaders.
 // sinceTs (ms): only count predictions resolved at/after this instant.
 // 0 = everything. Powers Today / This Week / All-Time from one code path.
@@ -922,9 +949,11 @@ function computeStats(sinceTs){
   STATE.predictions.forEach(pr => {
     if(pr.status === "resolved" && (pr.outcome === true || pr.outcome === false)){
       if((pr.resolvedAt || 0) < sinceTs) return;   // outside the window
+      const st = predStakes(pr);
+      if(!st.counts) return;                        // didn't meet the crowd rule — no points
       pr.calls.forEach(call => {
         const s = m[call.playerId]; if(!s) return;
-        s.score += scoreCall(call, pr.outcome);
+        s.score += pointsFor(call, pr);
         s.calls += 1;
         if(call.confidence > 50){
           s.leans += 1;
@@ -1039,7 +1068,7 @@ function dailyCallCard(p){
   return `<div class="daily-call">
     <div class="dc-head"><span class="dc-badge">⭐ DAILY CALL</span>${strip}</div>
     <div class="dc-q">${esc(p.text)}</div>
-    <div class="dc-meta">🟢 ${called}/${total} called${p.category?` · ${esc(p.category)}`:""}</div>
+    <div class="dc-meta">🟢 ${called}/${total} called${p.category?` · ${esc(p.category)}`:""} · ⭐ boosted (win ×3 · miss ×2)</div>
     ${action}
   </div>`;
 }
@@ -1048,21 +1077,31 @@ function predictionCard(p){
   const count = p.callCount || 0;
   const mineCall = p.calls.find(c => c.playerId === ME);
   const closed = isLocked(p);              // past the close time
-  const confirmed = count >= 3;
+  const auto = isAuto(p);
+  const st = predStakes(p);
+  const counts = st.counts;                // auto: always; manual: needs ≥2 players
   const iCreated = p.createdBy === ME;
-  const canResolve = closed && confirmed && !iCreated && !mineCall;
+  const canResolve = !auto && closed && counts && !iCreated && !mineCall;
 
-  // status strip: caller count + close countdown / closed
+  // status strip: caller count + created date + close countdown / closed
   let strip = `<span class="pill live">🟢 ${count} called</span>`;
+  if(p.createdAt) strip += `<span class="pill grey">📅 ${fmtDateTs(p.createdAt)}</span>`;
   if(!closed && p.lockAt){
     strip += `<span class="pill grey">⏳ closes ${lockCountdown(p.lockAt)}</span>`;
   } else if(closed){
     strip += `<span class="pill grey">🔒 calls closed</span>`;
   }
+  // stakes / bonus pill
+  if(auto){
+    strip += `<span class="pill warn">⭐ Bonus · win ×3 · miss ×2</span>`;
+  } else if(counts){
+    strip += `<span class="pill warn">🔥 ×${stakeMult(p)} stakes · ${st.n} in</span>`;
+  }
 
-  // not-yet-confirmed nudge (under 3 players)
-  const confirmNote = !confirmed
-    ? `<div class="inprog-note">⏳ In progress — needs ${3-count} more ${3-count===1?'player':'players'} to count <b>(${count}/3)</b></div>`
+  // crowd nudge (manual, under 2 players)
+  const need = 2 - count;
+  const confirmNote = (!auto && !counts)
+    ? `<div class="inprog-note">⏳ In progress — needs ${need} more ${need===1?'player':'players'} to count <b>(${count}/2)</b></div>`
     : "";
 
   // your own (locked) call — others stay hidden until it resolves (blind)
@@ -1081,13 +1120,13 @@ function predictionCard(p){
     actions += `<button class="btn" data-action="open-resolve" data-pred="${p.id}" style="background:var(--ghost-bg);border:1.5px solid var(--coral);color:var(--coral-deep);font-weight:800">🛠️ Admin resolve</button>`;
   } else if(canResolve){
     actions += `<button class="btn mint" data-action="open-resolve" data-pred="${p.id}">✅ Resolve</button>`;
-  } else if(closed && confirmed && (iCreated || mineCall)){
+  } else if(closed && counts && (iCreated || mineCall)){
     actions += `<div class="tiny muted" style="padding:2px">🧑‍⚖️ Waiting on a neutral player to resolve — you've got a stake in this one.</div>`;
-  } else if(closed && !confirmed){
-    actions += `<div class="tiny muted" style="padding:2px">Closed without 3 players — this one expires and won't count.</div>`;
+  } else if(closed && !counts && !auto){
+    actions += `<div class="tiny muted" style="padding:2px">Closed without 2 players — this one expires and won't count.</div>`;
   }
 
-  return `<div class="card pred${confirmed?'':' inprog'}">
+  return `<div class="card pred${counts?'':' inprog'}">
     <div class="statement">${esc(p.text)}</div>
     <div class="meta">${strip}</div>
     ${confirmNote}
@@ -1267,16 +1306,20 @@ function resolvedCard(p){
     const exp = p.status === "expired";
     return `<div class="card" style="opacity:.78">
       <div class="row spread" style="align-items:flex-start; margin-bottom:6px">
-        <div class="statement" style="flex:1; margin:0">${p.source==="daily"?'⭐ ':''}${esc(p.text)}</div>
+        <div class="statement" style="flex:1; margin:0">${isAuto(p)?'⭐ ':''}${esc(p.text)}</div>
         <span class="stamp" style="background:var(--pill-grey-bg); color:var(--pill-grey-ink)">${exp?'EXPIRED':'NO CONTEST'}</span>
       </div>
-      <div class="tiny muted">${exp?'Didn’t reach 3 players before closing — no points awarded.':'Voided — no points awarded.'}</div>
+      <div class="tiny muted">${exp?'Didn’t reach 2 players before closing — no points awarded.':'Voided — no points awarded.'}</div>
     </div>`;
   }
   const outcome = p.outcome === true;
   const resolver = getPlayer(p.resolvedBy);
+  const st = predStakes(p);
+  const stakeNote = st.auto
+    ? `⭐ Bonus call · wins ×3 · misses ×2`
+    : `🔥 ${st.n} player${st.n===1?'':'s'} · ×${stakeMult(p)} stakes`;
   const lines = p.calls
-    .map(c => ({ c, pts: scoreCall(c, p.outcome) }))
+    .map(c => ({ c, pts: pointsFor(c, p) }))
     .sort((a,b) => b.pts - a.pts)
     .map(({c,pts}) => {
       const pl = getPlayer(c.playerId); if(!pl) return "";
@@ -1293,9 +1336,10 @@ function resolvedCard(p){
 
   return `<div class="card">
     <div class="row spread" style="align-items:flex-start; margin-bottom:10px">
-      <div class="statement" style="flex:1; margin:0">${esc(p.text)}</div>
+      <div class="statement" style="flex:1; margin:0">${isAuto(p)?'⭐ ':''}${esc(p.text)}</div>
       <span class="stamp ${outcome?'t':'f'}">${outcome?'IT HAPPENED':"DIDN'T HAPPEN"}</span>
     </div>
+    ${p.calls.length ? `<div class="tiny muted" style="margin:-2px 0 9px">${stakeNote}${p.createdAt?` · 📅 ${fmtDateTs(p.createdAt)}`:''}</div>` : ""}
     ${p.calls.length ? lines : `<div class="tiny muted">No one called this one.</div>`}
     ${resolver ? `<div class="tiny muted" style="margin-top:8px">⚖️ Resolved by ${esc(resolver.name)}</div>` : ""}
   </div>`;
@@ -1304,13 +1348,16 @@ function resolvedCard(p){
 function pendingMini(p){
   const count = p.callCount || 0;
   const closed = isLocked(p);
-  const canResolve = closed && count>=3 && p.createdBy!==ME && !p.calls.find(c=>c.playerId===ME);
+  const auto = isAuto(p);
+  const counts = predStakes(p).counts;
+  const canResolve = !auto && closed && counts && p.createdBy!==ME && !p.calls.find(c=>c.playerId===ME);
   const isAdmin = !!ME && ME === ADMIN_ID;
+  const need = 2 - count;
   return `<div class="card" style="padding:13px 15px">
     <div class="row spread">
       <div style="flex:1; min-width:0">
         <div class="bold" style="font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(p.text)}</div>
-        <div class="tiny muted">${count} call${count===1?"":"s"}${count<3?` · needs ${3-count} more`:""}${closed?" · closed":""}</div>
+        <div class="tiny muted">${count} call${count===1?"":"s"}${(!auto && !counts)?` · needs ${need} more`:""}${p.createdAt?` · 📅 ${fmtDateTs(p.createdAt)}`:""}${closed?" · closed":""}</div>
       </div>
       ${(isAdmin || canResolve) ? `<button class="btn ghost tiny-btn" data-action="open-resolve" data-pred="${p.id}"${isAdmin && !canResolve ? ' style="border-color:var(--coral);color:var(--coral-deep)"' : ''}>${isAdmin && !canResolve ? "🛠️ Resolve" : "Resolve"}</button>` : ""}
     </div>
@@ -1365,6 +1412,15 @@ function isPast(ds){
 function fmtDate(ds){
   const d = new Date(ds + "T12:00:00");
   return d.toLocaleDateString(undefined, {month:"short", day:"numeric"});
+}
+// Format a millisecond timestamp as a short date (adds the year if it's not this year).
+function fmtDateTs(ms){
+  if(!ms) return "";
+  const d = new Date(ms), now = new Date();
+  const opts = d.getFullYear() === now.getFullYear()
+    ? {month:"short", day:"numeric"}
+    : {month:"short", day:"numeric", year:"numeric"};
+  return d.toLocaleDateString(undefined, opts);
 }
 function startOfToday(){ const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); }
 function startOfWeek(){
@@ -1471,7 +1527,7 @@ function sheetNewPrediction(){
       <option value="720">12 hours</option>
       <option value="1440">24 hours</option>
     </select>
-    <div class="tiny muted" style="margin:-4px 2px 6px">Once calls close nobody can join — and it needs <b>3 players</b> to count, or it expires.</div>
+    <div class="tiny muted" style="margin:-4px 2px 6px">Once calls close nobody can join — and it needs <b>2 players</b> to count, or it expires.</div>
     <button class="btn coral" data-action="save-pred">Post it</button>
   `);
   setTimeout(()=>{ const i=document.getElementById("ptext"); if(i){i.focus();} }, 250);
@@ -1608,7 +1664,7 @@ async function doResolve(outcomeTrue){
   const { error } = await sb.rpc(isAdmin ? "admin_resolve_prediction" : "resolve_prediction", { pred_id: predId, did_happen: !!outcomeTrue });
   if(error){
     const m = error.message||"";
-    toast(/your own|neutral|stake|3 players|calls close|settled|admin only|not found/i.test(m)
+    toast(/your own|neutral|stake|players|calls close|settled|admin only|not found|auto calls/i.test(m)
       ? m.replace(/^.*?:\s*/,"")
       : "Couldn't resolve — someone may have beaten you to it.");
     await refresh();
@@ -1622,7 +1678,7 @@ async function doResolve(outcomeTrue){
 
   // Build the results breakdown from freshly-synced data
   const rows = (resolved ? resolved.calls : [])
-    .map(c => ({ c, pts: scoreCall(c, outcome), pl:getPlayer(c.playerId) }))
+    .map(c => ({ c, pts: pointsFor(c, resolved), pl:getPlayer(c.playerId) }))
     .filter(r => r.pl)
     .sort((a,b) => b.pts - a.pts);
 
@@ -1686,21 +1742,27 @@ function sheetSettings(){
 
     <div class="explain">
       <h4>How scoring works 🎯</h4>
-      <p>Everyone picks <b>will / won't happen</b> and how sure they are (50–100%). The surer you are, the more you can win — or lose.</p>
-      <p>Here's the twist that keeps people honest: a confident <i>miss</i> hurts way more than a confident hit helps. So bragging is risky.</p>
+      <p>Everyone picks <b>will / won't happen</b> and how sure they are (50–100%). The surer you are, the more you can win — or lose. A confident <i>miss</i> hurts more than a confident hit helps, so honest calls pay off.</p>
       <div class="ex-row"><span>Said 100% and nailed it</span><span style="color:var(--mint-deep)">+25</span></div>
       <div class="ex-row"><span>Said 70% and nailed it</span><span style="color:var(--mint-deep)">+16</span></div>
       <div class="ex-row"><span>Sat it out at 50%</span><span style="color:var(--ink-faint)">0</span></div>
       <div class="ex-row"><span>Said 70% and whiffed</span><span style="color:var(--coral-deep)">−24</span></div>
       <div class="ex-row"><span>Said 100% and whiffed</span><span style="color:var(--coral-deep)">−75</span></div>
+
+      <h4 style="margin-top:16px">The crowd raises the stakes 🔥</h4>
+      <p>A call needs at least <b>2 players</b> to count. The bigger the crowd, the higher the stakes — points scale up with how many people weigh in, so a packed call is worth far more than a quiet one (and two friends can't farm easy points).</p>
+      <div class="ex-row"><span>2 players</span><span>×0.5</span></div>
+      <div class="ex-row"><span>3 players</span><span>×1</span></div>
+      <div class="ex-row"><span>5 players</span><span>×2</span></div>
+      <div class="ex-row"><span>7+ players</span><span>×3 (max)</span></div>
+
+      <h4 style="margin-top:16px">⭐ Daily &amp; auto calls</h4>
+      <p>Special calls the app posts (like the Daily Call) skip the crowd rule and carry <b>boosted</b> stakes: wins count <b>triple</b>, misses count <b>double</b>. Even if you're the only one who calls it, you get the full boosted points.</p>
+      <div class="ex-row"><span>Auto · 100% and nailed it</span><span style="color:var(--mint-deep)">+75</span></div>
+      <div class="ex-row"><span>Auto · 70% and nailed it</span><span style="color:var(--mint-deep)">+48</span></div>
+      <div class="ex-row"><span>Auto · 100% and whiffed</span><span style="color:var(--coral-deep)">−150</span></div>
     </div>
 
-    <div class="set-item" data-action="export">
-      <div class="si-ico" style="background:linear-gradient(135deg,var(--blue),#1E63E0)">⬇️</div>
-      <div class="si-main"><div class="si-t">Export a backup</div>
-        <div class="si-d">Download the whole game as JSON</div></div>
-      <div class="chev">›</div>
-    </div>
     <div class="set-item" data-action="sign-out">
       <div class="si-ico" style="background:linear-gradient(135deg,var(--ink-soft),var(--ink))">🚪</div>
       <div class="si-main"><div class="si-t">Sign out</div>
@@ -1710,21 +1772,6 @@ function sheetSettings(){
 
     <div class="tiny faint center" style="margin-top:18px">Everyone's calls sync live. ✨</div>
   `);
-}
-
-function exportGame(){
-  try{
-    const data = JSON.stringify(STATE, null, 2);
-    const blob = new Blob([data], {type:"application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0,10);
-    a.href = url; a.download = `called-it-${stamp}.json`;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url), 1000);
-    toast("Backup saved ⬇️");
-  }catch(e){ toast("Couldn't export — try again."); }
 }
 
 async function signOut(){
@@ -1838,8 +1885,11 @@ function countUp(node, to){
    this syncs the toggle glyph, persists locally, and best-effort writes the
    preference to profiles.theme so it follows the player across devices.
    ========================================================================= */
-const THEME_KEY = "callit-theme";
+const THEME_KEY = "app-theme";   // shared across Called It + Bullseye (same origin)
 let isDark = document.documentElement.getAttribute("data-theme") === "dark";
+function storedTheme(){
+  try{ return localStorage.getItem("app-theme") || localStorage.getItem("callit-theme") || localStorage.getItem("bullseye-theme"); }catch(e){ return null; }
+}
 
 function applyTheme(mode){
   isDark = (mode === "dark");
@@ -1859,7 +1909,7 @@ function initTheme(){ applyTheme(isDark ? "dark" : "light"); }   // reflect head
 // On first run on this device (no local choice yet), adopt the account's saved theme.
 async function adoptProfileTheme(){
   try{
-    if(localStorage.getItem(THEME_KEY)) return;
+    if(storedTheme()) return;
     if(!ME) return;
     const { data } = await sb.from("profiles").select("theme").eq("id", ME).maybeSingle();
     if(data && (data.theme === "dark" || data.theme === "light")){
@@ -1868,6 +1918,10 @@ async function adoptProfileTheme(){
     }
   }catch(e){}
 }
+// Stay in sync if the theme is changed in the other game (or another tab).
+window.addEventListener("storage", e => {
+  if(e.key === "app-theme" && (e.newValue === "dark" || e.newValue === "light")) applyTheme(e.newValue);
+});
 initTheme();
 
 document.addEventListener("click", (e) => {
@@ -1915,7 +1969,6 @@ document.addEventListener("click", (e) => {
     /* Profile + settings actions */
     case "edit-profile": sheetEditProfile(); break;
     case "save-profile": saveProfile(); break;
-    case "export": exportGame(); break;
     case "sign-out": signOut(); break;
   }
 });
