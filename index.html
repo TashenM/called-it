@@ -1010,8 +1010,13 @@ function isLocked(p){ return p.lockAt != null && Date.now() >= p.lockAt; }
 function renderPredict(){
   const el = document.getElementById("view-predict");
   const pendingAll = STATE.predictions.filter(p => p.status === "pending");
-  const daily = pendingAll.find(p => p.source === "daily");
-  const pending = pendingAll.filter(p => p.source !== "daily")
+  // Auto calls (Daily / F1 / UFC …) are pinned up top: still-open first, then soonest-to-lock.
+  const featured = pendingAll.filter(p => isAuto(p)).sort((a,b) => {
+    const la = isLocked(a), lb = isLocked(b);
+    if(la !== lb) return la ? 1 : -1;
+    return (a.lockAt||Infinity) - (b.lockAt||Infinity);
+  });
+  const pending = pendingAll.filter(p => !isAuto(p))
                     .sort((a,b) => b.createdAt - a.createdAt);
 
   let html = `<div class="view-head"><h1>What's going to happen?</h1>
@@ -1024,15 +1029,15 @@ function renderPredict(){
     el.innerHTML = html; return;
   }
 
-  // ⭐ Daily Call — pinned at the very top
-  if(daily) html += dailyCallCard(daily);
+  // ⭐ Featured / auto calls — pinned at the very top
+  featured.forEach(p => html += dailyCallCard(p));
 
-  html += `<button class="btn coral" style="margin:${daily?'4px':'0'} 0 16px" data-action="new-pred">＋ New prediction</button>`;
+  html += `<button class="btn coral" style="margin:${featured.length?'4px':'0'} 0 16px" data-action="new-pred">＋ New prediction</button>`;
 
-  if(pending.length === 0 && !daily){
+  if(pending.length === 0 && featured.length === 0){
     html += emptyState("🔮","No open predictions",
       "Call something — the weather, the game, your friend's love life. Anything goes.");
-  } else if(pending.length === 0 && daily){
+  } else if(pending.length === 0 && featured.length){
     html += `<div class="tiny muted center" style="margin:6px 0">No other open predictions — start one above. ✨</div>`;
   } else {
     pending.forEach(p => html += predictionCard(p));
@@ -1066,9 +1071,9 @@ function dailyCallCard(p){
   }
 
   return `<div class="daily-call">
-    <div class="dc-head"><span class="dc-badge">⭐ DAILY CALL</span>${strip}</div>
+    <div class="dc-head"><span class="dc-badge">⭐ ${p.category?esc(p.category.toUpperCase()):'DAILY CALL'}</span>${strip}</div>
     <div class="dc-q">${esc(p.text)}</div>
-    <div class="dc-meta">🟢 ${called}/${total} called${p.category?` · ${esc(p.category)}`:""} · ⭐ boosted (win ×3 · miss ×2)</div>
+    <div class="dc-meta">🟢 ${called}/${total} called · ⭐ boosted (win ×3 · miss ×2)</div>
     ${action}
   </div>`;
 }
