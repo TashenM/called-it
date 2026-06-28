@@ -776,7 +776,8 @@ let ADMIN_ID = null;       // only this user can reset the season
 let boardWindow = "all";   // "today" | "week" | "all"
 
 /* Transient UI state while a sheet is open */
-let draftCall = null;     // {predId, side, confidence}  (the caller is always ME)
+let draftCall = null;     // {predId, kind, side, confidence, pick}  (the caller is always ME)
+let draftPred = null;     // new-prediction builder draft {kind, text, mins, options[]}
 let resolveTarget = null; // predId being resolved
 
 /* =========================================================================
@@ -797,8 +798,8 @@ async function refresh(){
   try{
     const [profiles, preds, calls, config] = await Promise.all([
       sb.from("profiles").select("id,name,color,emoji,created_at"),
-      sb.from("predictions").select("id,text,resolve_by,status,outcome,resolved_at,resolved_by,created_at,created_by,source,category,lock_at,resolve_at,daily_date,call_count"),
-      sb.from("calls").select("prediction_id,player_id,side,confidence,updated_at"),
+      sb.from("predictions").select("id,text,resolve_by,status,outcome,resolved_at,resolved_by,created_at,created_by,source,category,lock_at,resolve_at,daily_date,call_count,kind,options,result"),
+      sb.from("calls").select("prediction_id,player_id,side,confidence,pick,updated_at"),
       sb.from("app_config").select("season_start,admin_id").eq("id",1).maybeSingle()
     ]);
     if(profiles.error || preds.error || calls.error){
@@ -829,6 +830,9 @@ async function refresh(){
         lockAt: r.lock_at ? Date.parse(r.lock_at) : null,
         resolveAt: r.resolve_at ? Date.parse(r.resolve_at) : null,
         dailyDate: r.daily_date || null,
+        kind: r.kind || "binary",
+        options: r.options || null,
+        result: r.result || null,
         calls:[]
       };
       byPred[p.id] = p; return p;
@@ -836,7 +840,7 @@ async function refresh(){
     (calls.data||[]).forEach(c => {
       const p = byPred[c.prediction_id]; if(!p) return;
       p.calls.push({
-        playerId:c.player_id, side:c.side, confidence:c.confidence,
+        playerId:c.player_id, side:c.side, confidence:c.confidence, pick:c.pick,
         at: c.updated_at ? Date.parse(c.updated_at) : 0
       });
     });
@@ -928,8 +932,51 @@ function predStakes(p){
 }
 function stakeMult(p){ const m = predStakes(p).gain; return Math.round(m * 10) / 10; }
 
-// Final awarded points for one call on a resolved prediction (after stakes/boost).
+// --- F1 (auto choice): flat, generous, single-winner ---
+const F1_WIN = 120, F1_TEAM = 40, F1_MISS = -35;
+// --- user multi-option: base at the 2-player floor, scaled up by the crowd (×1 → cap 3) ---
+const CHOICE_WIN = 20, CHOICE_MISS = -10;
+function choiceMult(n){ return Math.max(1, Math.min(STAKE_CAP, 1 + (n - 2) * 0.5)); } // 2→1, 3→1.5, 4→2, 6→3
+
+// Whether a prediction's points count toward the board.
+function predCounts(p){
+  if(p.kind === "choice"){
+    if(isAuto(p)) return true;        // F1: always counts, even solo
+    return callerCount(p) >= 2;       // user multi-option: needs ≥2 players
+  }
+  return predStakes(p).counts;        // binary
+}
+
+// Labels: a player's pick shown as a fighter name / driver / YES·NO.
+function optLabel(p, id){ const o=(p.options||[]).find(o=>o.id===id); return o ? o.label : null; }
+function optGroup(p, id){ const o=(p.options||[]).find(o=>o.id===id); return o ? o.group : null; }
+function callLabel(p, call){
+  if(p.kind === "choice") return optLabel(p, call.pick) || "—";
+  if(p.options && p.options.length === 2) return call.side==="yes" ? p.options[0].label : p.options[1].label;
+  return call.side==="yes" ? "YES" : "NO";
+}
+function callCorrect(p, call){
+  if(p.kind === "choice") return !!p.result && call.pick === p.result.id;
+  return call.confidence > 50 && ((call.side === "yes") === (p.outcome === true));
+}
+function isSettled(p){
+  return p.status === "resolved" && (p.kind === "choice" ? !!p.result : (p.outcome === true || p.outcome === false));
+}
+
+// Final awarded points for one call on a resolved prediction.
 function pointsFor(call, p){
+  if(p.kind === "choice"){
+    if(!p.result || !predCounts(p)) return 0;
+    const correct = call.pick === p.result.id;
+    if(isAuto(p)){                                    // F1 flat scoring
+      if(correct) return F1_WIN;
+      const sameTeam = p.result.group && optGroup(p, call.pick) === p.result.group;
+      return sameTeam ? F1_TEAM : F1_MISS;
+    }
+    const m = choiceMult(callerCount(p));             // user multi-option, crowd-scaled
+    return Math.round((correct ? CHOICE_WIN : CHOICE_MISS) * m);
+  }
+  // binary (Brier × stakes/boost)
   const st = predStakes(p);
   if(!st.counts) return 0;
   const base = scoreCall(call, p.outcome);
@@ -947,19 +994,17 @@ function computeStats(sinceTs){
   });
 
   STATE.predictions.forEach(pr => {
-    if(pr.status === "resolved" && (pr.outcome === true || pr.outcome === false)){
+    if(isSettled(pr)){
       if((pr.resolvedAt || 0) < sinceTs) return;   // outside the window
-      const st = predStakes(pr);
-      if(!st.counts) return;                        // didn't meet the crowd rule — no points
+      if(!predCounts(pr)) return;                   // didn't meet the crowd rule — no points
       pr.calls.forEach(call => {
         const s = m[call.playerId]; if(!s) return;
         s.score += pointsFor(call, pr);
         s.calls += 1;
-        if(call.confidence > 50){
+        if(pr.kind !== "choice" && call.confidence > 50){   // confidence stats are binary-only
           s.leans += 1;
           s.sumConf += call.confidence;
-          const leanedTrue = call.side === "yes";
-          if(leanedTrue === pr.outcome) s.correct += 1;
+          if((call.side === "yes") === pr.outcome) s.correct += 1;
         }
       });
     } else if(pr.status === "pending"){
@@ -1063,17 +1108,23 @@ function dailyCallCard(p){
   // Calls stay blind until the result is in — no crowd bar while live.
   let action;
   if(mineCall){
-    action = `<div class="dc-note">✅ You called <b>${mineCall.side==="yes"?"YES":"NO"}</b> · ${mineCall.confidence}% 🔒${locked?"":" · calls stay hidden until the result"}</div>`;
+    const lab = esc(callLabel(p, mineCall));
+    const tail = p.kind==="choice" ? "" : ` · ${mineCall.confidence}%`;
+    action = `<div class="dc-note">✅ You ${p.kind==="choice"?"picked":"called"} <b>${lab}</b>${tail} 🔒${locked?"":" · stays hidden until the result"}</div>`;
   } else if(locked){
     action = `<div class="dc-note">Calls are in — sit tight for the result.</div>`;
   } else {
     action = `<button class="btn dc-btn" data-action="open-call" data-pred="${p.id}">📣 Make your call</button>`;
   }
 
+  const blurb = p.kind==="choice"
+    ? "⭐ +120 win · +40 right team · −35 miss"
+    : "⭐ boosted (win ×3 · miss ×2)";
+
   return `<div class="daily-call">
     <div class="dc-head"><span class="dc-badge">⭐ ${p.category?esc(p.category.toUpperCase()):'DAILY CALL'}</span>${strip}</div>
     <div class="dc-q">${esc(p.text)}</div>
-    <div class="dc-meta">🟢 ${called}/${total} called · ⭐ boosted (win ×3 · miss ×2)</div>
+    <div class="dc-meta">🟢 ${called}/${total} called · ${blurb}</div>
     ${action}
   </div>`;
 }
@@ -1083,8 +1134,8 @@ function predictionCard(p){
   const mineCall = p.calls.find(c => c.playerId === ME);
   const closed = isLocked(p);              // past the close time
   const auto = isAuto(p);
-  const st = predStakes(p);
-  const counts = st.counts;                // auto: always; manual: needs ≥2 players
+  const counts = predCounts(p);            // auto: always; manual: needs ≥2 players
+  const n = callerCount(p);
   const iCreated = p.createdBy === ME;
   const canResolve = !auto && closed && counts && !iCreated && !mineCall;
 
@@ -1096,11 +1147,16 @@ function predictionCard(p){
   } else if(closed){
     strip += `<span class="pill grey">🔒 calls closed</span>`;
   }
-  // stakes / bonus pill
+  // stakes / scoring pill
   if(auto){
-    strip += `<span class="pill warn">⭐ Bonus · win ×3 · miss ×2</span>`;
+    strip += p.kind==="choice"
+      ? `<span class="pill warn">⭐ +120 win · +40 team · −35</span>`
+      : `<span class="pill warn">⭐ Bonus · win ×3 · miss ×2</span>`;
   } else if(counts){
-    strip += `<span class="pill warn">🔥 ×${stakeMult(p)} stakes · ${st.n} in</span>`;
+    const m1 = Math.round((p.kind==="choice"?choiceMult(n):predStakes(p).gain)*10)/10;
+    strip += p.kind==="choice"
+      ? `<span class="pill warn">🔥 ×${m1} · +20 base · ${n} in</span>`
+      : `<span class="pill warn">🔥 ×${m1} stakes · ${n} in</span>`;
   }
 
   // crowd nudge (manual, under 2 players)
@@ -1110,10 +1166,14 @@ function predictionCard(p){
     : "";
 
   // your own (locked) call — others stay hidden until it resolves (blind)
-  const yourCall = mineCall
-    ? `<div class="your-call"><span class="yc-dot ${mineCall.side==='yes'?'y':'n'}">${mineCall.side==='yes'?'✓':'✕'}</span>
-         You called <b>${mineCall.side==='yes'?'YES':'NO'}</b> · ${mineCall.confidence}% <span class="yc-lock">🔒</span></div>`
-    : "";
+  let yourCall = "";
+  if(mineCall){
+    const lab = esc(callLabel(p, mineCall));
+    yourCall = p.kind === "choice"
+      ? `<div class="your-call"><span class="yc-dot y">●</span> You picked <b>${lab}</b> <span class="yc-lock">🔒</span></div>`
+      : `<div class="your-call"><span class="yc-dot ${mineCall.side==='yes'?'y':'n'}">${mineCall.side==='yes'?'✓':'✕'}</span>
+           You called <b>${lab}</b> · ${mineCall.confidence}% <span class="yc-lock">🔒</span></div>`;
+  }
 
   // actions
   const isAdmin = !!ME && ME === ADMIN_ID;
@@ -1317,8 +1377,43 @@ function resolvedCard(p){
       <div class="tiny muted">${exp?'Didn’t reach 2 players before closing — no points awarded.':'Voided — no points awarded.'}</div>
     </div>`;
   }
-  const outcome = p.outcome === true;
   const resolver = getPlayer(p.resolvedBy);
+
+  // ----- multi-option (F1 / user choice) -----
+  if(p.kind === "choice"){
+    const win = p.result || {};
+    const stakeNote = isAuto(p)
+      ? `⭐ Bonus call · +120 win · +40 right team · −35 miss`
+      : `🔥 ${callerCount(p)} player${callerCount(p)===1?'':'s'} · ×${Math.round(choiceMult(callerCount(p))*10)/10} · +20 base`;
+    const lines = p.calls
+      .map(c => ({ c, pts: pointsFor(c, p) }))
+      .sort((a,b) => b.pts - a.pts)
+      .map(({c,pts}) => {
+        const pl = getPlayer(c.playerId); if(!pl) return "";
+        const cls = pts>0?"up":pts<0?"down":"zero";
+        const exact = c.pick === win.id;
+        const team = !exact && win.group && optGroup(p, c.pick) === win.group;
+        return `<div class="result-line">
+          <div class="avatar sm" style="background:${pl.color}">${pl.emoji}</div>
+          <span class="name">${esc(pl.name)} ${exact?'🎯':(team?'🛞':'')}</span>
+          <span class="call">${esc(callLabel(p,c))}</span>
+          <span class="delta ${cls}">${signed(pts)}</span>
+        </div>`;
+      }).join("");
+    return `<div class="card">
+      <div class="row spread" style="align-items:flex-start; margin-bottom:10px">
+        <div class="statement" style="flex:1; margin:0">${isAuto(p)?'⭐ ':''}${esc(p.text)}</div>
+        <span class="stamp t" style="white-space:nowrap">🏆 ${esc(win.label||'—')}</span>
+      </div>
+      ${p.calls.length ? `<div class="tiny muted" style="margin:-2px 0 9px">${stakeNote}${p.createdAt?` · 📅 ${fmtDateTs(p.createdAt)}`:''}</div>` : ""}
+      ${p.calls.length ? lines : `<div class="tiny muted">No one called this one.</div>`}
+      ${resolver ? `<div class="tiny muted" style="margin-top:8px">⚖️ Resolved by ${esc(resolver.name)}</div>` : ""}
+    </div>`;
+  }
+
+  // ----- binary -----
+  const outcome = p.outcome === true;
+  const named = p.options && p.options.length === 2;     // UFC: stamp the winning fighter
   const st = predStakes(p);
   const stakeNote = st.auto
     ? `⭐ Bonus call · wins ×3 · misses ×2`
@@ -1329,12 +1424,10 @@ function resolvedCard(p){
     .map(({c,pts}) => {
       const pl = getPlayer(c.playerId); if(!pl) return "";
       const cls = pts>0?"up":pts<0?"down":"zero";
-      const leanedTrue = c.side==="yes";
-      const nailed = c.confidence>50 && (leanedTrue === p.outcome);
       return `<div class="result-line">
         <div class="avatar sm" style="background:${pl.color}">${pl.emoji}</div>
-        <span class="name">${esc(pl.name)} ${nailed?'🎯':''}</span>
-        <span class="call">${c.side==="yes"?"YES":"NO"} ${c.confidence}%</span>
+        <span class="name">${esc(pl.name)} ${callCorrect(p,c)?'🎯':''}</span>
+        <span class="call">${esc(callLabel(p,c))} ${c.confidence}%</span>
         <span class="delta ${cls}">${signed(pts)}</span>
       </div>`;
     }).join("");
@@ -1342,7 +1435,9 @@ function resolvedCard(p){
   return `<div class="card">
     <div class="row spread" style="align-items:flex-start; margin-bottom:10px">
       <div class="statement" style="flex:1; margin:0">${isAuto(p)?'⭐ ':''}${esc(p.text)}</div>
-      <span class="stamp ${outcome?'t':'f'}">${outcome?'IT HAPPENED':"DIDN'T HAPPEN"}</span>
+      ${named
+        ? `<span class="stamp t" style="white-space:nowrap">🏆 ${esc(outcome?p.options[0].label:p.options[1].label)}</span>`
+        : `<span class="stamp ${outcome?'t':'f'}">${outcome?'IT HAPPENED':"DIDN'T HAPPEN"}</span>`}
     </div>
     ${p.calls.length ? `<div class="tiny muted" style="margin:-2px 0 9px">${stakeNote}${p.createdAt?` · 📅 ${fmtDateTs(p.createdAt)}`:''}</div>` : ""}
     ${p.calls.length ? lines : `<div class="tiny muted">No one called this one.</div>`}
@@ -1516,37 +1611,73 @@ async function saveProfile(){
 
 /* ---------- New prediction ---------- */
 function sheetNewPrediction(){
+  draftPred = { kind:"binary", text:"", mins:"60", options:["",""] };
+  renderNewPredSheet();
+  setTimeout(()=>{ const i=document.getElementById("ptext"); if(i){i.focus();} }, 250);
+}
+function syncDraftPredInputs(){
+  if(!draftPred) return;
+  const ta=document.getElementById("ptext"); if(ta) draftPred.text=ta.value;
+  const cl=document.getElementById("pclose"); if(cl) draftPred.mins=cl.value;
+  const inputs=document.querySelectorAll(".opt-input");
+  if(inputs.length) draftPred.options=Array.from(inputs).map(i=>i.value);
+}
+function renderNewPredSheet(){
+  const d = draftPred;
+  const closeOpts = [["15","15 minutes"],["30","30 minutes"],["60","1 hour"],["180","3 hours"],["360","6 hours"],["720","12 hours"],["1440","24 hours"]];
+  const optRows = (d.options||[]).map((v,i)=>`
+    <div class="row" style="gap:8px; margin-bottom:8px; align-items:center">
+      <input class="field opt-input" style="margin:0; flex:1" maxlength="40" value="${esc(v)}" placeholder="Option ${i+1}">
+      ${d.options.length>2?`<button class="btn ghost" data-action="rm-opt" data-i="${i}" style="padding:10px 13px; flex:0 0 auto">✕</button>`:""}
+    </div>`).join("");
+
   openSheet(`
     <div class="sheet-title">New prediction</div>
-    <div class="sheet-sub">Say what'll happen. Keep it clear enough to call TRUE or FALSE later.</div>
+    <div class="sheet-sub">Say what'll happen, then pick how people answer.</div>
     <label class="fl" for="ptext">The prediction</label>
     <textarea class="field" id="ptext" inputmode="text" autocapitalize="sentences" enterkeyhint="done"
-      maxlength="160" placeholder="It'll rain at the BBQ on Saturday"></textarea>
+      maxlength="160" placeholder="${d.kind==='choice'?'Who wins the league this season?':'Rain at the BBQ on Saturday'}">${esc(d.text||"")}</textarea>
+
+    <label class="fl">Answer type</label>
+    <div class="row" style="gap:8px; margin-bottom:12px">
+      <button class="btn ${d.kind==='binary'?'coral':'ghost'}" data-action="pred-kind" data-kind="binary" style="flex:1">Yes / No</button>
+      <button class="btn ${d.kind==='choice'?'coral':'ghost'}" data-action="pred-kind" data-kind="choice" style="flex:1">Multiple choice</button>
+    </div>
+
+    ${d.kind==='choice'?`
+      <label class="fl">Options <span class="tiny muted">(2–8)</span></label>
+      ${optRows}
+      ${d.options.length<8?`<button class="btn ghost" data-action="add-opt" style="margin-bottom:10px">＋ Add option</button>`:""}
+      <div class="tiny muted" style="margin:-2px 2px 10px">Correct pick <b>+20</b> base · wrong <b>−10</b> · scales up with the crowd.</div>
+    `:""}
+
     <label class="fl" for="pclose">Calls close in</label>
     <select class="field" id="pclose">
-      <option value="15">15 minutes</option>
-      <option value="30">30 minutes</option>
-      <option value="60" selected>1 hour</option>
-      <option value="180">3 hours</option>
-      <option value="360">6 hours</option>
-      <option value="720">12 hours</option>
-      <option value="1440">24 hours</option>
+      ${closeOpts.map(([v,l])=>`<option value="${v}" ${String(d.mins||'60')===v?'selected':''}>${l}</option>`).join("")}
     </select>
     <div class="tiny muted" style="margin:-4px 2px 6px">Once calls close nobody can join — and it needs <b>2 players</b> to count, or it expires.</div>
     <button class="btn coral" data-action="save-pred">Post it</button>
   `);
-  setTimeout(()=>{ const i=document.getElementById("ptext"); if(i){i.focus();} }, 250);
 }
 async function savePrediction(){
+  syncDraftPredInputs();
   const ta = document.getElementById("ptext");
-  const text = (ta.value||"").trim();
-  if(!text){ ta.focus(); shake(ta); return; }
-  const mins = parseInt((document.getElementById("pclose")||{}).value, 10) || 60;
+  const text = (draftPred.text||"").trim();
+  if(!text){ if(ta){ta.focus(); shake(ta);} return; }
+  const mins = parseInt(draftPred.mins,10) || 60;
   const lockAt = new Date(Date.now() + mins*60000).toISOString();
+
+  let payload = { text, created_by: ME, source: "manual", lock_at: lockAt };
+  if(draftPred.kind === "choice"){
+    const labels = (draftPred.options||[]).map(s=>(s||"").trim()).filter(Boolean);
+    if(labels.length < 2){ toast("Give it at least 2 options."); return; }
+    payload.kind = "choice";
+    payload.options = labels.map((label,i)=>({ id:`o${i+1}`, label, group:null, groupLabel:null }));
+  }
+
   const btn = document.querySelector('[data-action="save-pred"]');
   if(btn){ btn.disabled = true; btn.textContent = "Posting…"; }
-  const { error } = await sb.from("predictions")
-    .insert({ text, created_by: ME, source: "manual", lock_at: lockAt });
+  const { error } = await sb.from("predictions").insert(payload);
   if(error){
     const m = error.message||"";
     toast(/limit of 3/i.test(m) ? "That's your 3 new calls for today — predicting stays unlimited."
@@ -1555,6 +1686,7 @@ async function savePrediction(){
     if(btn){btn.disabled=false; btn.textContent="Post it";}
     return;
   }
+  draftPred = null;
   await refresh();
   closeSheet();
   tab = "predict"; render();
@@ -1567,27 +1699,50 @@ function sheetCall(predId){
   if(!pred || pred.status !== "pending") return;
   if(isLocked(pred)){ toast("Calls for this one have closed. 🔒"); return; }
   if(pred.calls.find(c=>c.playerId===ME)){ toast("Your call's already locked in — no changes. 🔒"); return; }
-  draftCall = { predId, side: null, confidence: null };
+  draftCall = { predId, kind: pred.kind || "binary", side: null, confidence: null, pick: null };
   renderCallSheet();
 }
 function renderCallSheet(){
   const pred = STATE.predictions.find(p=>p.id===draftCall.predId);
   const mine = me();
-
-  let body = `
+  const header = `
     <div class="sheet-title">Make a call</div>
     <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(pred.text)}"</div>
     <div class="row" style="gap:10px; margin:2px 0 6px; align-items:center">
       <span class="avatar sm" style="background:${mine?mine.color:'#ccc'}">${mine?mine.emoji:'🙂'}</span>
       <span class="bold">${mine?esc(mine.name):"You"}</span>
       <span class="tiny muted">final · hidden until it resolves</span>
-    </div>
+    </div>`;
+
+  // ----- multi-option (F1, user choice): a dropdown, no confidence -----
+  if(pred.kind === "choice"){
+    const opts = pred.options || [];
+    const n = callerCount(pred);
+    const hint = isAuto(pred)
+      ? "Exact winner +120 · right team +40 · wrong −35"
+      : `Right +${CHOICE_WIN}${n>=2?` (×${Math.round(choiceMult(n)*10)/10} now)`:""} · wrong ${CHOICE_MISS} · scales with the crowd`;
+    openSheet(header + `
+      <label class="fl">Your pick</label>
+      <select class="field" id="pickSel">
+        <option value="" disabled selected>Choose…</option>
+        ${opts.map(o=>`<option value="${esc(o.id)}">${esc(o.label)}${o.groupLabel?` — ${esc(o.groupLabel)}`:""}</option>`).join("")}
+      </select>
+      <div class="tiny muted" style="margin:4px 2px 12px">${hint}</div>
+      <button class="btn coral" data-action="save-call">Lock it in 🔒</button>`);
+    return;
+  }
+
+  // ----- binary (manual yes/no, or UFC fighter names) -----
+  const named = pred.options && pred.options.length === 2;
+  const yesLab = named ? pred.options[0].label : "Will happen";
+  const noLab  = named ? pred.options[1].label : "Won't happen";
+  let body = header + `
     <label class="fl">Your call</label>
     <div class="yn">
       <button class="yes ${draftCall.side==='yes'?'on':''}" data-action="pick-side" data-side="yes">
-        Will happen<span class="lab">YES, I'm calling it</span></button>
+        ${esc(yesLab)}<span class="lab">${named?"takes it":"YES, I'm calling it"}</span></button>
       <button class="no ${draftCall.side==='no'?'on':''}" data-action="pick-side" data-side="no">
-        Won't happen<span class="lab">NO, not a chance</span></button>
+        ${esc(noLab)}<span class="lab">${named?"takes it":"NO, not a chance"}</span></button>
     </div>`;
 
   if(draftCall.side){
@@ -1608,14 +1763,22 @@ function renderCallSheet(){
   openSheet(body);
 }
 async function saveCall(){
-  if(!draftCall || !draftCall.side || !draftCall.confidence) return;
+  if(!draftCall) return;
+  const pred = STATE.predictions.find(p=>p.id===draftCall.predId);
   const predId = draftCall.predId;
-  const side = draftCall.side, confidence = draftCall.confidence;
+  let payload;
+  if(pred && pred.kind === "choice"){
+    const sel = document.getElementById("pickSel");
+    const pick = sel ? sel.value : "";
+    if(!pick){ if(sel) shake(sel); return; }
+    payload = { prediction_id: predId, player_id: ME, pick };
+  } else {
+    if(!draftCall.side || !draftCall.confidence) return;
+    payload = { prediction_id: predId, player_id: ME, side: draftCall.side, confidence: draftCall.confidence };
+  }
   const btn = document.querySelector('[data-action="save-call"]');
   if(btn){ btn.disabled = true; btn.textContent = "Locking in…"; }
-  const { error } = await sb.from("calls").insert(
-    { prediction_id: predId, player_id: ME, side, confidence }
-  );
+  const { error } = await sb.from("calls").insert(payload);
   if(error){
     const m = error.message||"";
     toast(/duplicate|unique/i.test(m) ? "You've already called this one. 🔒"
@@ -1636,6 +1799,23 @@ function sheetResolve(predId){
   const pred = STATE.predictions.find(p=>p.id===predId);
   if(!pred) return;
   resolveTarget = predId;
+
+  // ----- multi-option (F1 / user choice): pick the winning option -----
+  if(pred.kind === "choice"){
+    const opts = pred.options || [];
+    openSheet(`
+      <div class="sheet-title">Who won?</div>
+      <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(pred.text)}"</div>
+      <p class="tiny muted" style="margin:0 2px 8px">${pred.calls.length} ${pred.calls.length===1?"pick":"picks"} on the line. Choose the actual result.</p>
+      <label class="fl">Winner</label>
+      <select class="field" id="winSel">
+        <option value="" disabled selected>Choose the winner…</option>
+        ${opts.map(o=>`<option value="${esc(o.id)}">${esc(o.label)}${o.groupLabel?` — ${esc(o.groupLabel)}`:""}</option>`).join("")}
+      </select>
+      <button class="btn coral" data-action="do-resolve-choice" style="margin-top:10px">Lock in the result 🏁</button>`);
+    return;
+  }
+
   if(pred.calls.length === 0){
     openSheet(`
       <div class="sheet-title">Resolve prediction</div>
@@ -1700,7 +1880,7 @@ async function doResolve(outcomeTrue){
     return `<div class="result-line">
       <div class="avatar sm" style="background:${pl.color}">${pl.emoji}</div>
       <span class="name">${esc(pl.name)} ${nailed?'🎯':''}</span>
-      <span class="call">${c.side==="yes"?"YES":"NO"} ${c.confidence}%</span>
+      <span class="call">${esc(callLabel(resolved||pred, c))} ${c.confidence}%</span>
       <span class="delta ${cls}">${signed(pts)}</span>
     </div>`;
   }).join("");
@@ -1712,6 +1892,67 @@ async function doResolve(outcomeTrue){
 
   openSheet(`
     <div class="sheet-title">${outcome ? "It happened! ✅" : "It didn't happen ❌"}</div>
+    <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(resolved?resolved.text:pred.text)}"</div>
+    <div class="card" style="margin:4px 0 16px">${lines}</div>
+    <div class="center bold" style="font-size:16px; margin-bottom:14px">${headline}</div>
+    <button class="btn coral" data-action="close-sheet">Nice 👏</button>
+  `);
+
+  render();
+  if(anyWin) bigConfetti(); else burstAtCenter();
+}
+
+async function doResolveChoice(){
+  const predId = resolveTarget;
+  const pred = STATE.predictions.find(p=>p.id===predId);
+  if(!pred) return;
+  const sel = document.getElementById("winSel");
+  const winId = sel ? sel.value : "";
+  if(!winId){ if(sel) shake(sel); return; }
+  const btn = document.querySelector('[data-action="do-resolve-choice"]');
+  if(btn){ btn.disabled = true; btn.textContent = "Locking in…"; }
+
+  const isAdmin = !!ME && ME === ADMIN_ID;
+  const { error } = await sb.rpc(isAdmin ? "admin_resolve_choice" : "resolve_choice", { pred_id: predId, win_id: winId });
+  if(error){
+    const m = error.message||"";
+    toast(/your own|neutral|stake|players|calls close|settled|admin only|not found|auto calls|valid option|multi-option/i.test(m)
+      ? m.replace(/^.*?:\s*/,"")
+      : "Couldn't resolve — someone may have beaten you to it.");
+    if(btn){ btn.disabled=false; btn.textContent="Lock in the result 🏁"; }
+    await refresh();
+    closeSheet();
+    return;
+  }
+  await refresh();
+
+  const resolved = STATE.predictions.find(p=>p.id===predId);
+  const win = resolved && resolved.result ? resolved.result : null;
+  const rows = (resolved ? resolved.calls : [])
+    .map(c => ({ c, pts: pointsFor(c, resolved), pl:getPlayer(c.playerId) }))
+    .filter(r => r.pl)
+    .sort((a,b) => b.pts - a.pts);
+
+  if(rows.length === 0){ closeSheet(); render(); toast("Result locked in. 🏁"); return; }
+
+  const lines = rows.map(({c,pts,pl}) => {
+    const cls = pts>0?"up":pts<0?"down":"zero";
+    const exact = win && c.pick === win.id;
+    const team  = win && !exact && win.group && optGroup(resolved, c.pick) === win.group;
+    return `<div class="result-line">
+      <div class="avatar sm" style="background:${pl.color}">${pl.emoji}</div>
+      <span class="name">${esc(pl.name)} ${exact?'🎯':(team?'🛞':'')}</span>
+      <span class="call">${esc(callLabel(resolved, c))}</span>
+      <span class="delta ${cls}">${signed(pts)}</span>
+    </div>`;
+  }).join("");
+
+  const anyWin = rows.some(r => r.pts > 0);
+  const topName = rows[0].pts>0 ? esc(rows[0].pl.name) : null;
+  const headline = anyWin ? (topName ? `${topName} nailed it! 🎉` : "Nailed it! 🎉") : "Ooof — nobody caught this one.";
+
+  openSheet(`
+    <div class="sheet-title">🏆 ${esc(win?win.label:'Result in')}</div>
     <div class="sheet-sub" style="font-weight:700; color:var(--ink)">"${esc(resolved?resolved.text:pred.text)}"</div>
     <div class="card" style="margin:4px 0 16px">${lines}</div>
     <div class="center bold" style="font-size:16px; margin-bottom:14px">${headline}</div>
@@ -1952,6 +2193,15 @@ document.addEventListener("click", (e) => {
     /* Predictions */
     case "new-pred": sheetNewPrediction(); break;
     case "save-pred": savePrediction(); break;
+    case "pred-kind":
+      syncDraftPredInputs(); draftPred.kind = target.dataset.kind; renderNewPredSheet(); break;
+    case "add-opt":
+      syncDraftPredInputs(); if((draftPred.options||[]).length < 8) draftPred.options.push(""); renderNewPredSheet(); break;
+    case "rm-opt":
+      syncDraftPredInputs();
+      draftPred.options.splice(parseInt(target.dataset.i,10), 1);
+      while(draftPred.options.length < 2) draftPred.options.push("");
+      renderNewPredSheet(); break;
 
     /* Calls (always as the signed-in player) */
     case "open-call": sheetCall(target.dataset.pred); break;
@@ -1964,6 +2214,7 @@ document.addEventListener("click", (e) => {
     /* Resolve */
     case "open-resolve": sheetResolve(target.dataset.pred); break;
     case "do-resolve": doResolve(target.dataset.out === "true"); break;
+    case "do-resolve-choice": doResolveChoice(); break;
 
     /* Leaderboard windows + admin reset */
     case "board-window":
